@@ -357,27 +357,43 @@
   /* ---------- NETWORK ROLE + SYNC ---------- */
   let role = null;            // 'host' | 'client' | null
   let stateInterval = null;
+  let remotePressedLabels = new Set();
 
   function broadcastState() {
     if (role !== 'host' || !conn || !conn.open) return;
     conn.send({
       type: 'state',
       tips,
-      pressedLabels: [...pressedIndices].map(i => NOTES[i].label),
+      pressedLabels: [...pressedLabels()],
       recipeId: currentRecipe ? currentRecipe.id : null,
+    });
+  }
+  function broadcastInput() {
+    if (role !== 'client' || !conn || !conn.open) return;
+    conn.send({
+      type: 'input',
+      pressedLabels: [...pressedIndices].map(i => NOTES[i].label),
     });
   }
   function broadcastReaction(kind) {
     if (role !== 'host' || !conn || !conn.open) return;
     conn.send({ type: 'react', kind });
   }
-  function startStateBroadcast() {
-    stopStateBroadcast();
-    stateInterval = setInterval(broadcastState, 100);
+  function startNetworkTick() {
+    stopNetworkTick();
+    stateInterval = setInterval(() => {
+      if (role === 'host') broadcastState();
+      else if (role === 'client') broadcastInput();
+    }, 100);
   }
-  function stopStateBroadcast() {
+  function stopNetworkTick() {
     if (stateInterval) clearInterval(stateInterval);
     stateInterval = null;
+  }
+  function setEqual(a, b) {
+    if (a.size !== b.size) return false;
+    for (const x of a) if (!b.has(x)) return false;
+    return true;
   }
   function applyRemoteState(s) {
     if (role !== 'client') return;
@@ -402,6 +418,14 @@
         chipEls[idx]?.classList.toggle('played', labels.has(n));
       });
     }
+  }
+  function applyRemoteInput(s) {
+    if (role !== 'host') return;
+    const newLabels = new Set(s.pressedLabels || []);
+    if (setEqual(newLabels, remotePressedLabels)) return;
+    remotePressedLabels = newLabels;
+    updatePlayedChips();
+    checkChord();
   }
   function applyRemoteReaction(kind) {
     if (role !== 'client') return;
@@ -538,7 +562,9 @@
     broadcastReaction(klass);
   }
   function pressedLabels() {
-    return new Set([...pressedIndices].map(i => NOTES[i].label));
+    const set = new Set([...pressedIndices].map(i => NOTES[i].label));
+    remotePressedLabels.forEach(l => set.add(l));
+    return set;
   }
   function updatePlayedChips() {
     if (!currentRecipe) return;
@@ -547,10 +573,17 @@
       chipEls[idx]?.classList.toggle('played', labels.has(n));
     });
   }
+  let chordWasMatched = false;
   function checkChord() {
     if (!currentRecipe) return;
     const labels = pressedLabels();
-    if (currentRecipe.notes.every(n => labels.has(n))) onOrderComplete();
+    const matched = currentRecipe.notes.every(n => labels.has(n));
+    if (matched && !chordWasMatched) {
+      chordWasMatched = true;
+      onOrderComplete();
+    } else if (!matched) {
+      chordWasMatched = false;
+    }
   }
   function onOrderComplete() {
     tips += currentRecipe.tip_value;
@@ -584,8 +617,8 @@
     k.dataset.down = '1';
     k.classList.add('pressed');
     playNote(NOTES[i].note);
+    pressedIndices.add(i);
     if (role !== 'client') {
-      pressedIndices.add(i);
       updatePlayedChips();
       checkChord();
     }
@@ -595,9 +628,10 @@
     if (!k || k.dataset.down !== '1') return;
     k.dataset.down = '0';
     k.classList.remove('pressed');
+    pressedIndices.delete(i);
     if (role !== 'client') {
-      pressedIndices.delete(i);
       updatePlayedChips();
+      checkChord();
     }
   }
   function buildPiano() {
@@ -624,7 +658,8 @@
     return s;
   }
   function cleanupPeer() {
-    stopStateBroadcast();
+    stopNetworkTick();
+    remotePressedLabels.clear();
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
   }
@@ -633,15 +668,18 @@
     show('screen-connected');
     c.on('close', () => {
       $('game-hint').textContent = 'Friend disconnected';
-      stopStateBroadcast();
+      stopNetworkTick();
+      remotePressedLabels.clear();
+      if (role !== 'client') updatePlayedChips();
     });
     c.on('data', d => {
       if (!d || typeof d !== 'object') return;
       if (d.type === 'state') applyRemoteState(d);
+      else if (d.type === 'input') applyRemoteInput(d);
       else if (d.type === 'react') applyRemoteReaction(d.kind);
     });
     setTimeout(() => show('screen-game'), 1200);
-    if (role === 'host') startStateBroadcast();
+    startNetworkTick();
   }
   function startHost() {
     show('screen-host');
