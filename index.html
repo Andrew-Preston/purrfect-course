@@ -91,9 +91,59 @@
   .game-stage {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+
+  /* ORDER TICKET */
+  .ticket {
+    background: #fffaee;
+    border: 2px dashed #d4a574;
+    border-radius: 0.85rem;
+    padding: 0.65rem 1rem 0.8rem;
+    box-shadow: 0 3px 0 rgba(93, 64, 55, 0.15);
+    transform: rotate(-2deg);
+    text-align: center;
+    min-width: 12rem;
+    max-width: 90%;
+    flex-shrink: 0;
+  }
+  .ticket-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin-bottom: 0.15rem;
+  }
+  .ticket-name {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #5d4037;
+    margin-bottom: 0.5rem;
+  }
+  .ticket-notes {
+    display: flex;
+    gap: 0.35rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .note-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    background: #ffd6a5;
+    color: #5d4037;
+    font-weight: 700;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 1rem;
+    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.18);
   }
   /* CAT */
   .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; }
@@ -189,6 +239,11 @@
     <p class="hint" id="game-hint">Tap a key</p>
   </div>
   <div class="game-stage">
+    <div id="ticket" class="ticket">
+      <div class="ticket-label">Order</div>
+      <div id="ticket-name" class="ticket-name"></div>
+      <div id="ticket-notes" class="ticket-notes"></div>
+    </div>
     <div id="cat-mount" class="cat-mount"></div>
   </div>
   <div id="piano" class="piano"></div>
@@ -325,6 +380,29 @@
     $('cat-mount').innerHTML = buildCat(cat);
   }
 
+  /* ---------- RECIPES ---------- */
+  const RECIPES = [
+    {
+      id: 'tuna_souffle',
+      name: 'Tuna Soufflé',
+      notes: ['C', 'E', 'G'],
+      rhythm: [0.5, 0.5, 1],
+      difficulty: 1,
+      tip_value: 10,
+      cat_dialogue: 'Mmm, fishy please!'
+    },
+  ];
+  function findRecipe(id) { return RECIPES.find(r => r.id === id); }
+
+  function renderTicket(recipe) {
+    const t = $('ticket');
+    if (!recipe) { t.style.display = 'none'; return; }
+    t.style.display = '';
+    $('ticket-name').textContent = recipe.name;
+    $('ticket-notes').innerHTML =
+      recipe.notes.map(n => `<span class="note-chip">${n}</span>`).join('');
+  }
+
   /* ---------- PIANO ---------- */
   const NOTES = [
     { note: 'C4', label: 'C' },
@@ -439,6 +517,7 @@
 
   buildPiano();
   renderCat(CATS[0]);
+  renderTicket(RECIPES[0]);
 </script>
 
 </body>
