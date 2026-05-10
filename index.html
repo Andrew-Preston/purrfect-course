@@ -12,28 +12,28 @@
     background: #fdf6e3;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     color: #5d4037;
-    display: flex;
+    padding: env(safe-area-inset-top) 1.25rem env(safe-area-inset-bottom) 1.25rem;
+    position: relative;
+  }
+  input { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: env(safe-area-inset-top) 1.25rem env(safe-area-inset-bottom) 1.25rem;
-    gap: 2.5rem;
+    gap: 1.5rem;
+    padding: 1.25rem;
   }
-  h1 {
-    font-size: clamp(2.25rem, 10vw, 4rem);
-    text-align: center;
-    letter-spacing: 0.02em;
-  }
-  .menu {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-    max-width: 22rem;
-  }
+  .screen.active { display: flex; }
+  h1 { font-size: clamp(2.25rem, 10vw, 4rem); text-align: center; letter-spacing: 0.02em; }
+  h2 { font-size: clamp(1.5rem, 6vw, 2rem); text-align: center; opacity: 0.8; }
+  .menu { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 22rem; }
   button {
     font: inherit;
     color: #5d4037;
+    background: #ffd6a5;
     border: none;
     border-radius: 1.25rem;
     padding: 1.25rem 1.5rem;
@@ -42,20 +42,160 @@
     cursor: pointer;
     box-shadow: 0 4px 0 rgba(93, 64, 55, 0.25);
     transition: transform 0.08s ease, box-shadow 0.08s ease;
+    width: 100%;
+    max-width: 22rem;
   }
-  button:active {
-    transform: translateY(2px);
-    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.25);
-  }
-  .host { background: #ffd6a5; }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(93, 64, 55, 0.25); }
   .join { background: #caffbf; }
+  .back { background: #f0e0d0; font-size: 1rem; padding: 0.75rem 1.25rem; max-width: 8rem; }
+  .code-box {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: clamp(3rem, 18vw, 6rem);
+    font-weight: 700;
+    letter-spacing: 0.4rem;
+    background: #fff5e1;
+    color: #5d4037;
+    padding: 1rem 1.5rem;
+    border-radius: 1.25rem;
+    border: 3px dashed #d4a574;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  input.code-box {
+    font-size: clamp(2.5rem, 14vw, 5rem);
+    width: 100%;
+    max-width: 16rem;
+    outline: none;
+  }
+  .hint { font-size: 1rem; opacity: 0.8; text-align: center; max-width: 22rem; }
+  .status { font-size: 1rem; opacity: 0.7; min-height: 1.5em; text-align: center; }
+  .status.error { color: #c62828; opacity: 1; }
 </style>
 </head>
 <body>
+
+<div id="screen-menu" class="screen active">
   <h1>Purrfect Course</h1>
   <div class="menu">
-    <button class="host" type="button">Host Game</button>
-    <button class="join" type="button">Join Game</button>
+    <button id="btn-host" type="button">Host Game</button>
+    <button id="btn-join" class="join" type="button">Join Game</button>
   </div>
+</div>
+
+<div id="screen-host" class="screen">
+  <h2>Room Code</h2>
+  <div id="host-code" class="code-box">----</div>
+  <p class="hint">Tell friend this code</p>
+  <p id="host-status" class="status">Starting...</p>
+  <button id="btn-host-back" class="back" type="button">Back</button>
+</div>
+
+<div id="screen-join" class="screen">
+  <h2>Enter Code</h2>
+  <input id="join-input" class="code-box" maxlength="4" inputmode="text"
+         autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="MEOW">
+  <button id="btn-connect" type="button">Connect</button>
+  <p id="join-status" class="status"></p>
+  <button id="btn-join-back" class="back" type="button">Back</button>
+</div>
+
+<div id="screen-connected" class="screen">
+  <h1>Connected!</h1>
+  <p id="connected-hint" class="hint">Both phones ready</p>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+  const APP_PREFIX = 'purrfect-course-v1-';
+  const $ = id => document.getElementById(id);
+  let peer = null;
+  let conn = null;
+
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  function randCode() {
+    let s = '';
+    for (let i = 0; i < 4; i++) s += String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    return s;
+  }
+
+  function cleanupPeer() {
+    if (conn) { try { conn.close(); } catch (e) {} conn = null; }
+    if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  }
+
+  function onConnected(c) {
+    conn = c;
+    show('screen-connected');
+    c.on('close', () => { $('connected-hint').textContent = 'Friend disconnected'; });
+  }
+
+  function startHost() {
+    show('screen-host');
+    $('host-code').textContent = '----';
+    setStatus('host-status', 'Starting...', false);
+    tryHost(0);
+  }
+
+  function tryHost(attempt) {
+    if (attempt > 4) { setStatus('host-status', 'Network busy. Try again.', true); return; }
+    const code = randCode();
+    cleanupPeer();
+    peer = new Peer(APP_PREFIX + code);
+    peer.on('open', () => {
+      $('host-code').textContent = code;
+      setStatus('host-status', 'Waiting for friend...', false);
+    });
+    peer.on('connection', c => { c.on('open', () => onConnected(c)); });
+    peer.on('error', err => {
+      if (err.type === 'unavailable-id') tryHost(attempt + 1);
+      else setStatus('host-status', 'Error: ' + err.type, true);
+    });
+  }
+
+  function startJoin() {
+    show('screen-join');
+    $('join-input').value = '';
+    setStatus('join-status', '', false);
+  }
+
+  function tryConnect() {
+    const code = $('join-input').value.trim().toUpperCase();
+    if (code.length !== 4) { setStatus('join-status', 'Need 4 letters', true); return; }
+    setStatus('join-status', 'Connecting...', false);
+    cleanupPeer();
+    peer = new Peer();
+    peer.on('open', () => {
+      const c = peer.connect(APP_PREFIX + code);
+      c.on('open', () => onConnected(c));
+    });
+    peer.on('error', err => {
+      const msg = err.type === 'peer-unavailable' ? 'No room with that code' : 'Could not connect';
+      setStatus('join-status', msg, true);
+    });
+  }
+
+  function setStatus(id, text, isError) {
+    const el = $(id);
+    el.textContent = text;
+    el.classList.toggle('error', !!isError);
+  }
+
+  function backToMenu() { cleanupPeer(); show('screen-menu'); }
+
+  $('btn-host').addEventListener('click', startHost);
+  $('btn-join').addEventListener('click', startJoin);
+  $('btn-connect').addEventListener('click', tryConnect);
+  $('btn-host-back').addEventListener('click', backToMenu);
+  $('btn-join-back').addEventListener('click', backToMenu);
+  $('join-input').addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+  });
+  $('join-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryConnect(); });
+</script>
+
 </body>
 </html>
