@@ -354,6 +354,60 @@
     if (synth) synth.triggerAttackRelease(note, '8n');
   }
 
+  /* ---------- NETWORK ROLE + SYNC ---------- */
+  let role = null;            // 'host' | 'client' | null
+  let stateInterval = null;
+
+  function broadcastState() {
+    if (role !== 'host' || !conn || !conn.open) return;
+    conn.send({
+      type: 'state',
+      tips,
+      pressedLabels: [...pressedIndices].map(i => NOTES[i].label),
+      recipeId: currentRecipe ? currentRecipe.id : null,
+    });
+  }
+  function broadcastReaction(kind) {
+    if (role !== 'host' || !conn || !conn.open) return;
+    conn.send({ type: 'react', kind });
+  }
+  function startStateBroadcast() {
+    stopStateBroadcast();
+    stateInterval = setInterval(broadcastState, 100);
+  }
+  function stopStateBroadcast() {
+    if (stateInterval) clearInterval(stateInterval);
+    stateInterval = null;
+  }
+  function applyRemoteState(s) {
+    if (role !== 'client') return;
+    const incomingId = s.recipeId || null;
+    const localId = currentRecipe ? currentRecipe.id : null;
+    if (incomingId !== localId) {
+      if (incomingId) {
+        const r = findRecipe(incomingId);
+        if (r) { currentRecipe = r; renderTicket(r); }
+      } else {
+        currentRecipe = null;
+      }
+    }
+    if (s.tips !== tips) {
+      const bump = s.tips > tips;
+      tips = s.tips;
+      updateTipDisplay(bump);
+    }
+    if (currentRecipe) {
+      const labels = new Set(s.pressedLabels || []);
+      currentRecipe.notes.forEach((n, idx) => {
+        chipEls[idx]?.classList.toggle('played', labels.has(n));
+      });
+    }
+  }
+  function applyRemoteReaction(kind) {
+    if (role !== 'client') return;
+    catReact(kind, kind === 'happy' ? 1500 : 400);
+  }
+
   /* ---------- CAT ---------- */
   const CATS = [{
     id: 'mochi',
@@ -481,6 +535,7 @@
     void m.offsetWidth;
     m.classList.add(klass);
     setTimeout(() => m.classList.remove(klass), ms);
+    broadcastReaction(klass);
   }
   function pressedLabels() {
     return new Set([...pressedIndices].map(i => NOTES[i].label));
@@ -529,17 +584,21 @@
     k.dataset.down = '1';
     k.classList.add('pressed');
     playNote(NOTES[i].note);
-    pressedIndices.add(i);
-    updatePlayedChips();
-    checkChord();
+    if (role !== 'client') {
+      pressedIndices.add(i);
+      updatePlayedChips();
+      checkChord();
+    }
   }
   function releaseKey(i) {
     const k = keyEls[i];
     if (!k || k.dataset.down !== '1') return;
     k.dataset.down = '0';
     k.classList.remove('pressed');
-    pressedIndices.delete(i);
-    updatePlayedChips();
+    if (role !== 'client') {
+      pressedIndices.delete(i);
+      updatePlayedChips();
+    }
   }
   function buildPiano() {
     const piano = $('piano');
@@ -565,19 +624,30 @@
     return s;
   }
   function cleanupPeer() {
+    stopStateBroadcast();
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
   }
   function onConnected(c) {
     conn = c;
     show('screen-connected');
-    c.on('close', () => { $('game-hint').textContent = 'Friend disconnected'; });
+    c.on('close', () => {
+      $('game-hint').textContent = 'Friend disconnected';
+      stopStateBroadcast();
+    });
+    c.on('data', d => {
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'state') applyRemoteState(d);
+      else if (d.type === 'react') applyRemoteReaction(d.kind);
+    });
     setTimeout(() => show('screen-game'), 1200);
+    if (role === 'host') startStateBroadcast();
   }
   function startHost() {
     show('screen-host');
     $('host-code').textContent = '----';
     setStatus('host-status', 'Starting...', false);
+    role = 'host';
     tryHost(0);
   }
   function tryHost(attempt) {
@@ -606,6 +676,7 @@
     if (code.length !== 4) { setStatus('join-status', 'Need 4 letters', true); return; }
     setStatus('join-status', 'Connecting...', false);
     cleanupPeer();
+    role = 'client';
     peer = new Peer();
     peer.on('open', () => {
       const c = peer.connect(APP_PREFIX + code);
@@ -621,7 +692,7 @@
     el.textContent = text;
     el.classList.toggle('error', !!isError);
   }
-  function backToMenu() { cleanupPeer(); show('screen-menu'); }
+  function backToMenu() { cleanupPeer(); role = null; show('screen-menu'); }
 
   /* ---------- WIRE UP ---------- */
   $('btn-host').addEventListener('click', () => { ensureAudio(); startHost(); });
