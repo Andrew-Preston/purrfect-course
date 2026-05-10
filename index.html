@@ -452,17 +452,18 @@
       notes.appendChild(c);
     });
   }
-  function lightChip(idx) { chipEls[idx]?.classList.add('played'); }
-  function resetChips() { chipEls.forEach(c => c.classList.remove('played')); }
 
   /* ---------- COOKING ---------- */
   let currentRecipe = null;
-  let progress = 0;
   let tips = 0;
 
   function startOrder(recipe) {
+    pressedIndices.forEach(i => {
+      keyEls[i].dataset.down = '0';
+      keyEls[i].classList.remove('pressed');
+    });
+    pressedIndices.clear();
     currentRecipe = recipe;
-    progress = 0;
     renderTicket(recipe);
   }
   function updateTipDisplay(bump) {
@@ -481,6 +482,21 @@
     m.classList.add(klass);
     setTimeout(() => m.classList.remove(klass), ms);
   }
+  function pressedLabels() {
+    return new Set([...pressedIndices].map(i => NOTES[i].label));
+  }
+  function updatePlayedChips() {
+    if (!currentRecipe) return;
+    const labels = pressedLabels();
+    currentRecipe.notes.forEach((n, idx) => {
+      chipEls[idx]?.classList.toggle('played', labels.has(n));
+    });
+  }
+  function checkChord() {
+    if (!currentRecipe) return;
+    const labels = pressedLabels();
+    if (currentRecipe.notes.every(n => labels.has(n))) onOrderComplete();
+  }
   function onOrderComplete() {
     tips += currentRecipe.tip_value;
     updateTipDisplay(true);
@@ -492,19 +508,6 @@
       $('game-hint').textContent = 'Play the order';
       startOrder(finished);
     }, 1700);
-  }
-  function checkNote(label) {
-    if (!currentRecipe) return;
-    const expected = currentRecipe.notes[progress];
-    if (label === expected) {
-      lightChip(progress);
-      progress++;
-      if (progress === currentRecipe.notes.length) onOrderComplete();
-    } else {
-      progress = 0;
-      resetChips();
-      catReact('sad', 400);
-    }
   }
 
   /* ---------- PIANO ---------- */
@@ -519,19 +522,24 @@
     { note: 'C5', label: 'C' },
   ];
   const keyEls = [];
+  const pressedIndices = new Set();
   function pressKey(i) {
     const k = keyEls[i];
     if (!k || k.dataset.down === '1') return;
     k.dataset.down = '1';
     k.classList.add('pressed');
     playNote(NOTES[i].note);
-    checkNote(NOTES[i].label);
+    pressedIndices.add(i);
+    updatePlayedChips();
+    checkChord();
   }
   function releaseKey(i) {
     const k = keyEls[i];
-    if (!k) return;
+    if (!k || k.dataset.down !== '1') return;
     k.dataset.down = '0';
     k.classList.remove('pressed');
+    pressedIndices.delete(i);
+    updatePlayedChips();
   }
   function buildPiano() {
     const piano = $('piano');
@@ -541,12 +549,10 @@
       k.textContent = label;
       const press = () => pressKey(i);
       const release = () => releaseKey(i);
-      k.addEventListener('touchstart', press, { passive: true });
-      k.addEventListener('touchend', release);
-      k.addEventListener('touchcancel', release);
-      k.addEventListener('mousedown', press);
-      k.addEventListener('mouseup', release);
-      k.addEventListener('mouseleave', release);
+      k.addEventListener('pointerdown', press);
+      k.addEventListener('pointerup', release);
+      k.addEventListener('pointercancel', release);
+      k.addEventListener('pointerleave', release);
       keyEls.push(k);
       piano.appendChild(k);
     });
