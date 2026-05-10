@@ -95,10 +95,26 @@
     justify-content: center;
     padding: 1rem;
   }
-  .stage-placeholder {
-    font-size: 1.1rem;
-    opacity: 0.5;
-    text-align: center;
+  /* CAT */
+  .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; }
+  .cat-svg { width: min(72vw, 320px); height: auto; display: block; overflow: visible; }
+  .cat-tail {
+    transform-box: fill-box;
+    transform-origin: 0% 100%;
+    animation: tail-sway 2.6s ease-in-out infinite;
+  }
+  .cat-eyes {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: blink 4.4s infinite;
+  }
+  @keyframes tail-sway {
+    0%, 100% { transform: rotate(-5deg); }
+    50%      { transform: rotate(6deg); }
+  }
+  @keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    94%, 98%      { transform: scaleY(0.08); }
   }
 
   /* PIANO */
@@ -173,7 +189,7 @@
     <p class="hint" id="game-hint">Tap a key</p>
   </div>
   <div class="game-stage">
-    <p class="stage-placeholder">cat goes here next step</p>
+    <div id="cat-mount" class="cat-mount"></div>
   </div>
   <div id="piano" class="piano"></div>
 </div>
@@ -181,6 +197,41 @@
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
 <script>
+  /* ============================================================
+     DATA SCHEMAS — for game data and future AI generation
+     ============================================================
+     CAT: {
+       id: string,
+       name: string,
+       fur_color: hex,            // e.g. "#e8a96b"
+       pattern: "solid"|"tabby"|"tuxedo"|"calico"|"spotted",
+       eye_color: hex,
+       hat: "none"|"chef"|"visor"|"beret"|"crown",
+       accessory: "none"|"bowtie"|"scarf"|"glasses",
+       favorite_food: string,     // recipe id
+       golf_style: "power"|"finesse"|"lucky"|"chaotic",
+       personality: string
+     }
+     RECIPE: {
+       id: string,
+       name: string,
+       notes: string[],           // ["C","E","G"]
+       rhythm: number[],          // beat durations [0.5, 0.5, 1]
+       difficulty: number,
+       tip_value: number,
+       cat_dialogue: string
+     }
+     HOLE: {
+       id: string,
+       name: string,
+       layout: number[][],        // 2D grid of tile codes
+       par: number,
+       hazards: object[],
+       tee_position: [number, number],
+       hole_position: [number, number]
+     }
+     ============================================================ */
+
   const APP_PREFIX = 'purrfect-course-v1-';
   const $ = id => document.getElementById(id);
   let peer = null;
@@ -205,6 +256,73 @@
   async function playNote(note) {
     await ensureAudio();
     if (synth) synth.triggerAttackRelease(note, '8n');
+  }
+
+  /* ---------- CAT ---------- */
+  const CATS = [{
+    id: 'mochi',
+    name: 'Mochi',
+    fur_color: '#e8a96b',
+    pattern: 'solid',
+    eye_color: '#1a1a1a',
+    hat: 'none',
+    accessory: 'none',
+    favorite_food: 'tuna_souffle',
+    golf_style: 'finesse',
+    personality: 'shy and patient'
+  }];
+
+  const CAT_PARTS = {
+    patterns: { solid: () => '' },
+    hats:     { none:  () => '' },
+    accessories: { none: () => '' },
+  };
+
+  function buildCat(cat) {
+    const fur = cat.fur_color;
+    const eye = cat.eye_color;
+    const pattern = (CAT_PARTS.patterns[cat.pattern] || CAT_PARTS.patterns.solid)(cat);
+    const hat = (CAT_PARTS.hats[cat.hat] || CAT_PARTS.hats.none)(cat);
+    const accessory = (CAT_PARTS.accessories[cat.accessory] || CAT_PARTS.accessories.none)(cat);
+    return `
+<svg viewBox="0 0 200 240" class="cat-svg" xmlns="http://www.w3.org/2000/svg">
+  <g class="cat-tail">
+    <path d="M148,180 Q200,150 188,90 Q183,72 196,68"
+          fill="none" stroke="${fur}" stroke-width="16" stroke-linecap="round"/>
+  </g>
+  <g class="cat-body">
+    <ellipse cx="100" cy="182" rx="56" ry="48" fill="${fur}"/>
+    <g class="cat-pattern">${pattern}</g>
+  </g>
+  <g class="cat-head">
+    <path d="M62,80 L70,38 L96,72 Z" fill="${fur}"/>
+    <path d="M138,80 L130,38 L104,72 Z" fill="${fur}"/>
+    <path d="M73,74 L77,52 L88,68 Z" fill="#f4a8a8"/>
+    <path d="M127,74 L123,52 L112,68 Z" fill="#f4a8a8"/>
+    <ellipse cx="100" cy="108" rx="50" ry="44" fill="${fur}"/>
+    <g stroke="#5d4037" stroke-width="1.2" stroke-linecap="round" opacity="0.7">
+      <line x1="48" y1="118" x2="78" y2="118"/>
+      <line x1="50" y1="128" x2="78" y2="123"/>
+      <line x1="152" y1="118" x2="122" y2="118"/>
+      <line x1="150" y1="128" x2="122" y2="123"/>
+    </g>
+    <g class="cat-eyes">
+      <ellipse cx="83" cy="108" rx="6.5" ry="10.5" fill="${eye}"/>
+      <ellipse cx="117" cy="108" rx="6.5" ry="10.5" fill="${eye}"/>
+      <circle cx="85" cy="104" r="2.2" fill="#fff"/>
+      <circle cx="119" cy="104" r="2.2" fill="#fff"/>
+    </g>
+    <path d="M96,122 L104,122 L100,128 Z" fill="#f4a8a8"/>
+    <path d="M100,128 Q94,134 89,131 M100,128 Q106,134 111,131"
+          stroke="#5d4037" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  </g>
+  <g class="cat-hat">${hat}</g>
+  <g class="cat-accessory">${accessory}</g>
+</svg>`;
+  }
+
+  function renderCat(cat) {
+    $('cat-mount').innerHTML = buildCat(cat);
   }
 
   /* ---------- PIANO ---------- */
@@ -320,6 +438,7 @@
   $('join-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryConnect(); });
 
   buildPiano();
+  renderCat(CATS[0]);
 </script>
 
 </body>
