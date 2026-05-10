@@ -81,6 +81,7 @@
     padding: 0;
     gap: 0;
     justify-content: stretch;
+    align-items: stretch;
   }
   .game-top {
     padding: 0.75rem 1rem;
@@ -102,16 +103,17 @@
 
   /* PIANO */
   .piano {
-    height: 33vh;
-    min-height: 180px;
+    height: 23vh;
+    min-height: 126px;
     display: flex;
     background: #5d4037;
-    padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom)) 0.5rem;
+    padding: 0.5rem 4px calc(0.5rem + env(safe-area-inset-bottom)) 4px;
     gap: 4px;
     flex-shrink: 0;
   }
   .key {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     background: #fff8e7;
     border-radius: 0 0 0.9rem 0.9rem;
     display: flex;
@@ -222,8 +224,7 @@
       const k = document.createElement('div');
       k.className = 'key';
       k.textContent = label;
-      const press = (e) => {
-        if (e.cancelable) e.preventDefault();
+      const press = () => {
         if (k.dataset.down === '1') return;
         k.dataset.down = '1';
         k.classList.add('pressed');
@@ -233,7 +234,7 @@
         k.dataset.down = '0';
         k.classList.remove('pressed');
       };
-      k.addEventListener('touchstart', press, { passive: false });
+      k.addEventListener('touchstart', press, { passive: true });
       k.addEventListener('touchend', release);
       k.addEventListener('touchcancel', release);
       k.addEventListener('mousedown', press);
