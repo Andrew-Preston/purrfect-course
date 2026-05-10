@@ -414,28 +414,35 @@
     { note: 'B4', label: 'B' },
     { note: 'C5', label: 'C' },
   ];
+  const keyEls = [];
+  function pressKey(i) {
+    const k = keyEls[i];
+    if (!k || k.dataset.down === '1') return;
+    k.dataset.down = '1';
+    k.classList.add('pressed');
+    playNote(NOTES[i].note);
+  }
+  function releaseKey(i) {
+    const k = keyEls[i];
+    if (!k) return;
+    k.dataset.down = '0';
+    k.classList.remove('pressed');
+  }
   function buildPiano() {
     const piano = $('piano');
-    NOTES.forEach(({ note, label }) => {
+    NOTES.forEach(({ label }, i) => {
       const k = document.createElement('div');
       k.className = 'key';
       k.textContent = label;
-      const press = () => {
-        if (k.dataset.down === '1') return;
-        k.dataset.down = '1';
-        k.classList.add('pressed');
-        playNote(note);
-      };
-      const release = () => {
-        k.dataset.down = '0';
-        k.classList.remove('pressed');
-      };
+      const press = () => pressKey(i);
+      const release = () => releaseKey(i);
       k.addEventListener('touchstart', press, { passive: true });
       k.addEventListener('touchend', release);
       k.addEventListener('touchcancel', release);
       k.addEventListener('mousedown', press);
       k.addEventListener('mouseup', release);
       k.addEventListener('mouseleave', release);
+      keyEls.push(k);
       piano.appendChild(k);
     });
   }
@@ -481,6 +488,7 @@
     show('screen-join');
     $('join-input').value = '';
     setStatus('join-status', '', false);
+    $('join-input').focus();
   }
   function tryConnect() {
     const code = $('join-input').value.trim().toUpperCase();
@@ -518,6 +526,19 @@
   buildPiano();
   renderCat(CATS[0]);
   renderTicket(RECIPES[0]);
+
+  /* keyboard 1-8 → piano keys (only on game screen) */
+  document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (!$('screen-game').classList.contains('active')) return;
+    const i = '12345678'.indexOf(e.key);
+    if (i >= 0) { e.preventDefault(); pressKey(i); }
+  });
+  document.addEventListener('keyup', e => {
+    if (!$('screen-game').classList.contains('active')) return;
+    const i = '12345678'.indexOf(e.key);
+    if (i >= 0) releaseKey(i);
+  });
 </script>
 
 </body>
