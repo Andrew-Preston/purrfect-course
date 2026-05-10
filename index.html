@@ -12,10 +12,11 @@
     background: #fdf6e3;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     color: #5d4037;
-    padding: env(safe-area-inset-top) 1.25rem env(safe-area-inset-bottom) 1.25rem;
+    padding-top: env(safe-area-inset-top);
     position: relative;
   }
   input { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+
   .screen {
     position: absolute;
     inset: 0;
@@ -27,8 +28,10 @@
     padding: 1.25rem;
   }
   .screen.active { display: flex; }
+
   h1 { font-size: clamp(2.25rem, 10vw, 4rem); text-align: center; letter-spacing: 0.02em; }
   h2 { font-size: clamp(1.5rem, 6vw, 2rem); text-align: center; opacity: 0.8; }
+
   .menu { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 22rem; }
   button {
     font: inherit;
@@ -48,6 +51,7 @@
   button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(93, 64, 55, 0.25); }
   .join { background: #caffbf; }
   .back { background: #f0e0d0; font-size: 1rem; padding: 0.75rem 1.25rem; max-width: 8rem; }
+
   .code-box {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: clamp(3rem, 18vw, 6rem);
@@ -67,9 +71,67 @@
     max-width: 16rem;
     outline: none;
   }
+
   .hint { font-size: 1rem; opacity: 0.8; text-align: center; max-width: 22rem; }
   .status { font-size: 1rem; opacity: 0.7; min-height: 1.5em; text-align: center; }
   .status.error { color: #c62828; opacity: 1; }
+
+  /* GAME SCREEN */
+  #screen-game {
+    padding: 0;
+    gap: 0;
+    justify-content: stretch;
+  }
+  .game-top {
+    padding: 0.75rem 1rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .game-stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .stage-placeholder {
+    font-size: 1.1rem;
+    opacity: 0.5;
+    text-align: center;
+  }
+
+  /* PIANO */
+  .piano {
+    height: 33vh;
+    min-height: 180px;
+    display: flex;
+    background: #5d4037;
+    padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom)) 0.5rem;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .key {
+    flex: 1;
+    background: #fff8e7;
+    border-radius: 0 0 0.9rem 0.9rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 0.9rem;
+    font-weight: 700;
+    color: #5d4037;
+    font-size: 1.2rem;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: inset 0 -8px 0 rgba(93, 64, 55, 0.12);
+    transition: transform 0.05s ease, background 0.05s ease, box-shadow 0.05s ease;
+  }
+  .key.pressed {
+    background: #f5e0b8;
+    transform: translateY(2px);
+    box-shadow: inset 0 -4px 0 rgba(93, 64, 55, 0.18);
+  }
 </style>
 </head>
 <body>
@@ -101,45 +163,108 @@
 
 <div id="screen-connected" class="screen">
   <h1>Connected!</h1>
-  <p id="connected-hint" class="hint">Both phones ready</p>
+  <p class="hint">Both phones ready</p>
+</div>
+
+<div id="screen-game" class="screen">
+  <div class="game-top">
+    <p class="hint" id="game-hint">Tap a key</p>
+  </div>
+  <div class="game-stage">
+    <p class="stage-placeholder">cat goes here next step</p>
+  </div>
+  <div id="piano" class="piano"></div>
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
 <script>
   const APP_PREFIX = 'purrfect-course-v1-';
   const $ = id => document.getElementById(id);
   let peer = null;
   let conn = null;
+  let synth = null;
 
+  /* ---------- SCREENS ---------- */
   function show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     $(id).classList.add('active');
   }
 
+  /* ---------- AUDIO ---------- */
+  async function ensureAudio() {
+    if (synth) return;
+    try {
+      await Tone.start();
+      synth = new Tone.PolySynth(Tone.Synth).toDestination();
+      synth.volume.value = -8;
+    } catch (e) {}
+  }
+  async function playNote(note) {
+    await ensureAudio();
+    if (synth) synth.triggerAttackRelease(note, '8n');
+  }
+
+  /* ---------- PIANO ---------- */
+  const NOTES = [
+    { note: 'C4', label: 'C' },
+    { note: 'D4', label: 'D' },
+    { note: 'E4', label: 'E' },
+    { note: 'F4', label: 'F' },
+    { note: 'G4', label: 'G' },
+    { note: 'A4', label: 'A' },
+    { note: 'B4', label: 'B' },
+    { note: 'C5', label: 'C' },
+  ];
+  function buildPiano() {
+    const piano = $('piano');
+    NOTES.forEach(({ note, label }) => {
+      const k = document.createElement('div');
+      k.className = 'key';
+      k.textContent = label;
+      const press = (e) => {
+        if (e.cancelable) e.preventDefault();
+        if (k.dataset.down === '1') return;
+        k.dataset.down = '1';
+        k.classList.add('pressed');
+        playNote(note);
+      };
+      const release = () => {
+        k.dataset.down = '0';
+        k.classList.remove('pressed');
+      };
+      k.addEventListener('touchstart', press, { passive: false });
+      k.addEventListener('touchend', release);
+      k.addEventListener('touchcancel', release);
+      k.addEventListener('mousedown', press);
+      k.addEventListener('mouseup', release);
+      k.addEventListener('mouseleave', release);
+      piano.appendChild(k);
+    });
+  }
+
+  /* ---------- HANDSHAKE ---------- */
   function randCode() {
     let s = '';
     for (let i = 0; i < 4; i++) s += String.fromCharCode(65 + Math.floor(Math.random() * 26));
     return s;
   }
-
   function cleanupPeer() {
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
   }
-
   function onConnected(c) {
     conn = c;
     show('screen-connected');
-    c.on('close', () => { $('connected-hint').textContent = 'Friend disconnected'; });
+    c.on('close', () => { $('game-hint').textContent = 'Friend disconnected'; });
+    setTimeout(() => show('screen-game'), 1200);
   }
-
   function startHost() {
     show('screen-host');
     $('host-code').textContent = '----';
     setStatus('host-status', 'Starting...', false);
     tryHost(0);
   }
-
   function tryHost(attempt) {
     if (attempt > 4) { setStatus('host-status', 'Network busy. Try again.', true); return; }
     const code = randCode();
@@ -155,13 +280,11 @@
       else setStatus('host-status', 'Error: ' + err.type, true);
     });
   }
-
   function startJoin() {
     show('screen-join');
     $('join-input').value = '';
     setStatus('join-status', '', false);
   }
-
   function tryConnect() {
     const code = $('join-input').value.trim().toUpperCase();
     if (code.length !== 4) { setStatus('join-status', 'Need 4 letters', true); return; }
@@ -177,17 +300,16 @@
       setStatus('join-status', msg, true);
     });
   }
-
   function setStatus(id, text, isError) {
     const el = $(id);
     el.textContent = text;
     el.classList.toggle('error', !!isError);
   }
-
   function backToMenu() { cleanupPeer(); show('screen-menu'); }
 
-  $('btn-host').addEventListener('click', startHost);
-  $('btn-join').addEventListener('click', startJoin);
+  /* ---------- WIRE UP ---------- */
+  $('btn-host').addEventListener('click', () => { ensureAudio(); startHost(); });
+  $('btn-join').addEventListener('click', () => { ensureAudio(); startJoin(); });
   $('btn-connect').addEventListener('click', tryConnect);
   $('btn-host-back').addEventListener('click', backToMenu);
   $('btn-join-back').addEventListener('click', backToMenu);
@@ -195,6 +317,8 @@
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
   });
   $('join-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryConnect(); });
+
+  buildPiano();
 </script>
 
 </body>
