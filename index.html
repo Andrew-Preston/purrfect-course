@@ -84,9 +84,27 @@
     align-items: stretch;
   }
   .game-top {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem 0.5rem;
     text-align: center;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+  .tip-counter {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #5d4037;
+    transition: color 0.2s ease;
+  }
+  .tip-counter.bump {
+    animation: tip-bump 0.5s ease-out;
+  }
+  @keyframes tip-bump {
+    0%   { transform: scale(1); color: #5d4037; }
+    35%  { transform: scale(1.35); color: #2e7d32; }
+    100% { transform: scale(1); color: #5d4037; }
   }
   .game-stage {
     flex: 1;
@@ -144,6 +162,11 @@
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 1rem;
     box-shadow: 0 2px 0 rgba(93, 64, 55, 0.18);
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .note-chip.played {
+    background: #a8e6a3;
+    transform: scale(1.08);
   }
   /* CAT */
   .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; }
@@ -165,6 +188,23 @@
   @keyframes blink {
     0%, 92%, 100% { transform: scaleY(1); }
     94%, 98%      { transform: scaleY(0.08); }
+  }
+  /* eat reaction */
+  .cat-mount.happy .cat-svg { animation: cat-bounce 0.45s ease-in-out 3; }
+  .cat-mount.happy .cat-eyes {
+    animation: none !important;
+    transform: scaleY(0.18);
+  }
+  @keyframes cat-bounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-12px); }
+  }
+  /* wrong-note reaction */
+  .cat-mount.sad .cat-svg { animation: cat-shake 0.4s ease-in-out; }
+  @keyframes cat-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px) rotate(-2deg); }
+    75% { transform: translateX(6px) rotate(2deg); }
   }
 
   /* PIANO */
@@ -236,7 +276,8 @@
 
 <div id="screen-game" class="screen">
   <div class="game-top">
-    <p class="hint" id="game-hint">Tap a key</p>
+    <div id="tip-counter" class="tip-counter">$0</div>
+    <p class="hint" id="game-hint">Play the order</p>
   </div>
   <div class="game-stage">
     <div id="ticket" class="ticket">
@@ -394,13 +435,76 @@
   ];
   function findRecipe(id) { return RECIPES.find(r => r.id === id); }
 
+  let chipEls = [];
   function renderTicket(recipe) {
     const t = $('ticket');
     if (!recipe) { t.style.display = 'none'; return; }
     t.style.display = '';
     $('ticket-name').textContent = recipe.name;
-    $('ticket-notes').innerHTML =
-      recipe.notes.map(n => `<span class="note-chip">${n}</span>`).join('');
+    const notes = $('ticket-notes');
+    notes.innerHTML = '';
+    chipEls = [];
+    recipe.notes.forEach(n => {
+      const c = document.createElement('span');
+      c.className = 'note-chip';
+      c.textContent = n;
+      chipEls.push(c);
+      notes.appendChild(c);
+    });
+  }
+  function lightChip(idx) { chipEls[idx]?.classList.add('played'); }
+  function resetChips() { chipEls.forEach(c => c.classList.remove('played')); }
+
+  /* ---------- COOKING ---------- */
+  let currentRecipe = null;
+  let progress = 0;
+  let tips = 0;
+
+  function startOrder(recipe) {
+    currentRecipe = recipe;
+    progress = 0;
+    renderTicket(recipe);
+  }
+  function updateTipDisplay(bump) {
+    const el = $('tip-counter');
+    el.textContent = '$' + tips;
+    if (bump) {
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+    }
+  }
+  function catReact(klass, ms) {
+    const m = $('cat-mount');
+    m.classList.remove('happy', 'sad');
+    void m.offsetWidth;
+    m.classList.add(klass);
+    setTimeout(() => m.classList.remove(klass), ms);
+  }
+  function onOrderComplete() {
+    tips += currentRecipe.tip_value;
+    updateTipDisplay(true);
+    catReact('happy', 1500);
+    $('game-hint').textContent = 'Yum! +$' + currentRecipe.tip_value;
+    const finished = currentRecipe;
+    currentRecipe = null;
+    setTimeout(() => {
+      $('game-hint').textContent = 'Play the order';
+      startOrder(finished);
+    }, 1700);
+  }
+  function checkNote(label) {
+    if (!currentRecipe) return;
+    const expected = currentRecipe.notes[progress];
+    if (label === expected) {
+      lightChip(progress);
+      progress++;
+      if (progress === currentRecipe.notes.length) onOrderComplete();
+    } else {
+      progress = 0;
+      resetChips();
+      catReact('sad', 400);
+    }
   }
 
   /* ---------- PIANO ---------- */
@@ -421,6 +525,7 @@
     k.dataset.down = '1';
     k.classList.add('pressed');
     playNote(NOTES[i].note);
+    checkNote(NOTES[i].label);
   }
   function releaseKey(i) {
     const k = keyEls[i];
@@ -525,7 +630,8 @@
 
   buildPiano();
   renderCat(CATS[0]);
-  renderTicket(RECIPES[0]);
+  startOrder(RECIPES[0]);
+  updateTipDisplay(false);
 
   /* keyboard 1-8 → piano keys (only on game screen) */
   document.addEventListener('keydown', e => {
