@@ -92,19 +92,38 @@
     align-items: center;
     gap: 0.15rem;
   }
-  .tip-counter {
+  .top-row {
+    display: flex;
+    gap: 1.5rem;
+    align-items: baseline;
+  }
+  .tip-counter, .day-timer {
     font-size: 1.7rem;
     font-weight: 700;
     color: #5d4037;
     transition: color 0.2s ease;
   }
+  .day-timer {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
   .tip-counter.bump {
     animation: tip-bump 0.5s ease-out;
+  }
+  .day-timer.urgent {
+    color: #c62828;
+    animation: timer-pulse 1s ease-in-out infinite;
+  }
+  .day-timer.done {
+    color: #c62828;
   }
   @keyframes tip-bump {
     0%   { transform: scale(1); color: #5d4037; }
     35%  { transform: scale(1.35); color: #2e7d32; }
     100% { transform: scale(1); color: #5d4037; }
+  }
+  @keyframes timer-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.1); }
   }
   .game-stage {
     flex: 1;
@@ -277,7 +296,10 @@
 
 <div id="screen-game" class="screen">
   <div class="game-top">
-    <div id="tip-counter" class="tip-counter">$0</div>
+    <div class="top-row">
+      <div id="tip-counter" class="tip-counter">$0</div>
+      <div id="day-timer" class="day-timer">1:00</div>
+    </div>
     <p class="hint" id="game-hint">Play the order</p>
   </div>
   <div class="game-stage">
@@ -367,6 +389,7 @@
       tips,
       pressedLabels: [...pressedLabels()],
       recipeId: currentRecipe ? currentRecipe.id : null,
+      secondsLeft,
     });
   }
   function broadcastInput() {
@@ -406,12 +429,22 @@
         if (r) { currentRecipe = r; renderTicket(r); }
       } else {
         currentRecipe = null;
+        renderTicket(null);
       }
     }
     if (s.tips !== tips) {
       const bump = s.tips > tips;
       tips = s.tips;
       updateTipDisplay(bump);
+    }
+    if (typeof s.secondsLeft === 'number' && s.secondsLeft !== secondsLeft) {
+      const wasActive = secondsLeft > 0 && dayActive;
+      secondsLeft = s.secondsLeft;
+      dayActive = secondsLeft > 0;
+      updateTimerDisplay();
+      if (wasActive && secondsLeft <= 0) {
+        $('game-hint').textContent = 'Day Over! Total: $' + tips;
+      }
     }
     if (currentRecipe) {
       const labels = new Set(s.pressedLabels || []);
@@ -576,7 +609,7 @@
   }
   let chordWasMatched = false;
   function checkChord() {
-    if (!currentRecipe) return;
+    if (!currentRecipe || !dayActive) return;
     const labels = pressedLabels();
     const matched = currentRecipe.notes.every(n => labels.has(n));
     if (matched && !chordWasMatched) {
@@ -585,6 +618,64 @@
     } else if (!matched) {
       chordWasMatched = false;
     }
+  }
+
+  /* ---------- DAY TIMER ---------- */
+  const DAY_LENGTH = 60;
+  let secondsLeft = DAY_LENGTH;
+  let dayActive = false;
+  let dayInterval = null;
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  function updateTimerDisplay() {
+    const el = $('day-timer');
+    el.textContent = formatTime(Math.max(0, secondsLeft));
+    el.classList.toggle('urgent', dayActive && secondsLeft <= 10 && secondsLeft > 0);
+    el.classList.toggle('done', !dayActive && secondsLeft <= 0);
+  }
+  function startDay() {
+    secondsLeft = DAY_LENGTH;
+    dayActive = true;
+    tips = 0;
+    chordWasMatched = false;
+    updateTipDisplay(false);
+    $('day-timer').classList.remove('done', 'urgent');
+    $('game-hint').textContent = 'Play the order';
+    updateTimerDisplay();
+    if (dayInterval) clearInterval(dayInterval);
+    if (role !== 'client') {
+      dayInterval = setInterval(tickDay, 1000);
+      startOrder(RECIPES[0]);
+    }
+  }
+  function tickDay() {
+    if (!dayActive) return;
+    secondsLeft -= 1;
+    if (secondsLeft <= 0) {
+      secondsLeft = 0;
+      endDay();
+    }
+    updateTimerDisplay();
+  }
+  function endDay() {
+    dayActive = false;
+    currentRecipe = null;
+    renderTicket(null);
+    chordWasMatched = false;
+    pressedIndices.forEach(i => {
+      keyEls[i].dataset.down = '0';
+      keyEls[i].classList.remove('pressed');
+    });
+    pressedIndices.clear();
+    remotePressedLabels.clear();
+    $('game-hint').textContent = 'Day Over! Total: $' + tips;
+    $('day-timer').classList.remove('urgent');
+    $('day-timer').classList.add('done');
+    if (dayInterval) { clearInterval(dayInterval); dayInterval = null; }
   }
   function onOrderComplete() {
     tips += currentRecipe.tip_value;
@@ -661,6 +752,7 @@
   function cleanupPeer() {
     stopNetworkTick();
     remotePressedLabels.clear();
+    if (dayInterval) { clearInterval(dayInterval); dayInterval = null; }
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
   }
@@ -679,7 +771,10 @@
       else if (d.type === 'input') applyRemoteInput(d);
       else if (d.type === 'react') applyRemoteReaction(d.kind);
     });
-    setTimeout(() => show('screen-game'), 1200);
+    setTimeout(() => {
+      show('screen-game');
+      startDay();
+    }, 1200);
     startNetworkTick();
   }
   function startHost() {
