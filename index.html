@@ -188,8 +188,56 @@
     transform: scale(1.08);
   }
   /* CAT */
-  .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; }
+  .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
   .cat-svg { width: min(72vw, 320px); height: auto; display: block; overflow: visible; }
+  .cat-mount-preview .cat-svg { width: min(45vw, 200px); }
+
+  /* CUSTOMIZE */
+  #screen-customize {
+    justify-content: flex-start;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem 1.25rem 2rem;
+    gap: 0.9rem;
+  }
+  .customize-section { width: 100%; max-width: 22rem; text-align: center; }
+  .section-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 0.4rem;
+  }
+  .swatch-row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+  .swatch {
+    width: 2.5rem; height: 2.5rem;
+    border-radius: 50%;
+    border: 3px solid #fdf6e3;
+    box-shadow: 0 0 0 2px rgba(93, 64, 55, 0.15);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .swatch.selected {
+    box-shadow: 0 0 0 3px #5d4037;
+    transform: scale(1.1);
+  }
+  .option-row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+  .option-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 1rem;
+    background: #fff5e1;
+    border: 2px solid transparent;
+    font: inherit;
+    font-weight: 600;
+    color: #5d4037;
+    text-transform: capitalize;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.15);
+  }
+  .option-btn.selected {
+    background: #ffd6a5;
+    border-color: #5d4037;
+  }
   .cat-tail {
     transform-box: fill-box;
     transform-origin: 0% 100%;
@@ -311,6 +359,32 @@
     <div id="cat-mount" class="cat-mount"></div>
   </div>
   <div id="piano" class="piano"></div>
+</div>
+
+<div id="screen-customize" class="screen">
+  <h2>Customize Cat</h2>
+  <div id="customize-preview" class="cat-mount-preview"></div>
+  <div class="customize-section">
+    <div class="section-label">Fur</div>
+    <div id="fur-swatches" class="swatch-row"></div>
+  </div>
+  <div class="customize-section">
+    <div class="section-label">Eyes</div>
+    <div id="eye-swatches" class="swatch-row"></div>
+  </div>
+  <div class="customize-section">
+    <div class="section-label">Pattern</div>
+    <div id="pattern-options" class="option-row"></div>
+  </div>
+  <div class="customize-section">
+    <div class="section-label">Hat</div>
+    <div id="hat-options" class="option-row"></div>
+  </div>
+  <div class="customize-section">
+    <div class="section-label">Bowtie / Scarf</div>
+    <div id="accessory-options" class="option-row"></div>
+  </div>
+  <button id="btn-customize-done" type="button">Done</button>
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -480,16 +554,94 @@
     personality: 'shy and patient'
   }];
 
+  function darken(hex, amt) {
+    amt = amt == null ? 0.3 : amt;
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substr(0, 2), 16);
+    const g = parseInt(h.substr(2, 2), 16);
+    const b = parseInt(h.substr(4, 2), 16);
+    const f = v => Math.max(0, Math.floor(v * (1 - amt))).toString(16).padStart(2, '0');
+    return '#' + f(r) + f(g) + f(b);
+  }
+
   const CAT_PARTS = {
-    patterns: { solid: () => '' },
-    hats:     { none:  () => '' },
-    accessories: { none: () => '' },
+    patterns: {
+      solid: () => '',
+      tabby: (cat) => {
+        const c = darken(cat.fur_color, 0.35);
+        return `
+          <g opacity="0.55" fill="none" stroke="${c}" stroke-linecap="round">
+            <path d="M58,168 Q72,164 90,167" stroke-width="4"/>
+            <path d="M56,184 Q72,180 92,183" stroke-width="4"/>
+            <path d="M58,200 Q72,196 88,198" stroke-width="4"/>
+            <path d="M110,167 Q126,164 142,168" stroke-width="4"/>
+            <path d="M108,183 Q126,180 144,184" stroke-width="4"/>
+            <path d="M112,198 Q126,196 142,200" stroke-width="4"/>
+            <path d="M92,82 Q100,78 108,82" stroke-width="3"/>
+            <path d="M95,70 Q100,66 105,70" stroke-width="3"/>
+            <path d="M100,58 L100,66" stroke-width="3"/>
+          </g>`;
+      },
+      tuxedo: () => `
+        <path d="M82,138 Q100,132 118,138 L122,212 Q100,224 78,212 Z"
+              fill="#fff" opacity="0.95"/>
+        <path d="M93,138 L93,128 Q100,125 107,128 L107,138 Z"
+              fill="#fff" opacity="0.95"/>`,
+      siamese: (cat) => {
+        const dark = darken(cat.fur_color, 0.6);
+        return {
+          body: '',
+          head: `
+            <path d="M62,80 L70,38 L96,72 Z" fill="${dark}"/>
+            <path d="M138,80 L130,38 L104,72 Z" fill="${dark}"/>
+            <path d="M73,74 L77,52 L88,68 Z" fill="#f4a8a8"/>
+            <path d="M127,74 L123,52 L112,68 Z" fill="#f4a8a8"/>
+            <ellipse cx="100" cy="122" rx="36" ry="22" fill="${dark}" opacity="0.45"/>
+          `
+        };
+      },
+    },
+    hats: {
+      none: () => '',
+      chef: () => `
+        <g>
+          <ellipse cx="100" cy="50" rx="34" ry="6" fill="#eeeeee"/>
+          <rect x="66" y="42" width="68" height="12" rx="3" fill="#fff"/>
+          <ellipse cx="82" cy="35" rx="15" ry="15" fill="#fff"/>
+          <ellipse cx="100" cy="26" rx="17" ry="15" fill="#fff"/>
+          <ellipse cx="118" cy="35" rx="15" ry="15" fill="#fff"/>
+        </g>`,
+      visor: () => `
+        <g>
+          <path d="M58,52 Q100,44 142,52 L142,62 Q100,57 58,62 Z" fill="#2e7d32"/>
+          <ellipse cx="100" cy="54" rx="42" ry="3" fill="#1b5e20"/>
+        </g>`,
+    },
+    accessories: {
+      none: () => '',
+      bowtie: () => `
+        <g>
+          <path d="M80,146 L98,140 L98,156 L80,150 Z" fill="#c62828"/>
+          <path d="M120,146 L102,140 L102,156 L120,150 Z" fill="#c62828"/>
+          <rect x="97" y="143" width="6" height="10" rx="1" fill="#8e1818"/>
+        </g>`,
+      scarf: () => `
+        <g>
+          <path d="M62,142 Q100,150 138,142 L138,156 Q100,164 62,156 Z" fill="#5e35b1"/>
+          <path d="M68,143 Q75,147 75,156" stroke="#9575cd" stroke-width="2" fill="none"/>
+          <path d="M85,143 Q92,147 92,156" stroke="#9575cd" stroke-width="2" fill="none"/>
+          <path d="M108,143 Q115,147 115,156" stroke="#9575cd" stroke-width="2" fill="none"/>
+          <path d="M125,143 Q132,147 132,156" stroke="#9575cd" stroke-width="2" fill="none"/>
+        </g>`,
+    },
   };
 
   function buildCat(cat) {
     const fur = cat.fur_color;
     const eye = cat.eye_color;
-    const pattern = (CAT_PARTS.patterns[cat.pattern] || CAT_PARTS.patterns.solid)(cat);
+    const p = (CAT_PARTS.patterns[cat.pattern] || CAT_PARTS.patterns.solid)(cat) || '';
+    const bodyPattern = typeof p === 'string' ? p : (p.body || '');
+    const headPattern = typeof p === 'string' ? '' : (p.head || '');
     const hat = (CAT_PARTS.hats[cat.hat] || CAT_PARTS.hats.none)(cat);
     const accessory = (CAT_PARTS.accessories[cat.accessory] || CAT_PARTS.accessories.none)(cat);
     return `
@@ -500,7 +652,7 @@
   </g>
   <g class="cat-body">
     <ellipse cx="100" cy="182" rx="56" ry="48" fill="${fur}"/>
-    <g class="cat-pattern">${pattern}</g>
+    <g class="cat-pattern">${bodyPattern}</g>
   </g>
   <g class="cat-head">
     <path d="M62,80 L70,38 L96,72 Z" fill="${fur}"/>
@@ -508,6 +660,7 @@
     <path d="M73,74 L77,52 L88,68 Z" fill="#f4a8a8"/>
     <path d="M127,74 L123,52 L112,68 Z" fill="#f4a8a8"/>
     <ellipse cx="100" cy="108" rx="50" ry="44" fill="${fur}"/>
+    <g class="cat-pattern-head">${headPattern}</g>
     <g stroke="#5d4037" stroke-width="1.2" stroke-linecap="round" opacity="0.7">
       <line x1="48" y1="118" x2="78" y2="118"/>
       <line x1="50" y1="128" x2="78" y2="123"/>
@@ -531,6 +684,79 @@
 
   function renderCat(cat) {
     $('cat-mount').innerHTML = buildCat(cat);
+  }
+
+  /* ---------- CUSTOMIZE ---------- */
+  const FUR_COLORS = ['#e8a96b', '#a0a0a8', '#f5e0c2', '#3e2723', '#d4b896', '#d97a3c', '#0d0d0d'];
+  const EYE_COLORS = ['#1a1a1a', '#4caf50', '#1976d2', '#ffa726'];
+  const STORAGE_KEY = 'purrfect-cat-v1';
+
+  function saveCustomCat() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(CATS[0])); } catch (e) {}
+  }
+  function loadCustomCat() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) Object.assign(CATS[0], JSON.parse(raw));
+    } catch (e) {}
+  }
+  function broadcastCat() {
+    if (!conn || !conn.open) return;
+    conn.send({ type: 'cat', cat: CATS[0] });
+  }
+  function applyRemoteCat(cat) {
+    if (!cat) return;
+    Object.assign(CATS[0], cat);
+    saveCustomCat();
+    renderCat(CATS[0]);
+    if ($('screen-customize').classList.contains('active')) refreshCustomize();
+  }
+
+  function buildSwatches(parentId, colors, currentValue, onPick) {
+    const parent = $(parentId);
+    parent.innerHTML = '';
+    colors.forEach(c => {
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (c === currentValue ? ' selected' : '');
+      sw.style.background = c;
+      sw.addEventListener('click', () => onPick(c));
+      parent.appendChild(sw);
+    });
+  }
+  function buildOptions(parentId, options, currentValue, onPick) {
+    const parent = $(parentId);
+    parent.innerHTML = '';
+    options.forEach(opt => {
+      const b = document.createElement('button');
+      b.className = 'option-btn' + (opt === currentValue ? ' selected' : '');
+      b.type = 'button';
+      b.textContent = opt;
+      b.addEventListener('click', () => onPick(opt));
+      parent.appendChild(b);
+    });
+  }
+  function refreshCustomize() {
+    const cat = CATS[0];
+    $('customize-preview').innerHTML = buildCat(cat);
+    buildSwatches('fur-swatches', FUR_COLORS, cat.fur_color, c => updateCat({ fur_color: c }));
+    buildSwatches('eye-swatches', EYE_COLORS, cat.eye_color, c => updateCat({ eye_color: c }));
+    buildOptions('pattern-options', Object.keys(CAT_PARTS.patterns), cat.pattern, p => updateCat({ pattern: p }));
+    buildOptions('hat-options', Object.keys(CAT_PARTS.hats), cat.hat, h => updateCat({ hat: h }));
+    buildOptions('accessory-options', Object.keys(CAT_PARTS.accessories), cat.accessory, a => updateCat({ accessory: a }));
+  }
+  function updateCat(changes) {
+    Object.assign(CATS[0], changes);
+    saveCustomCat();
+    renderCat(CATS[0]);
+    refreshCustomize();
+    broadcastCat();
+  }
+  function openCustomize() {
+    show('screen-customize');
+    refreshCustomize();
+  }
+  function closeCustomize() {
+    show('screen-game');
   }
 
   /* ---------- RECIPES ---------- */
@@ -770,6 +996,7 @@
       if (d.type === 'state') applyRemoteState(d);
       else if (d.type === 'input') applyRemoteInput(d);
       else if (d.type === 'react') applyRemoteReaction(d.kind);
+      else if (d.type === 'cat') applyRemoteCat(d.cat);
     });
     setTimeout(() => {
       show('screen-game');
@@ -834,12 +1061,15 @@
   $('btn-connect').addEventListener('click', tryConnect);
   $('btn-host-back').addEventListener('click', backToMenu);
   $('btn-join-back').addEventListener('click', backToMenu);
+  $('cat-mount').addEventListener('click', openCustomize);
+  $('btn-customize-done').addEventListener('click', closeCustomize);
   $('join-input').addEventListener('input', e => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
   });
   $('join-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryConnect(); });
 
   buildPiano();
+  loadCustomCat();
   renderCat(CATS[0]);
   startOrder(RECIPES[0]);
   updateTipDisplay(false);
