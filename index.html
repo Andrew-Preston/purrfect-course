@@ -229,6 +229,27 @@
     border-radius: 0.5rem;
     box-shadow: 0 4px 0 rgba(93, 64, 55, 0.2);
     display: block;
+    cursor: pointer;
+  }
+  .cat-golf-svg {
+    transform-box: fill-box;
+    transform-origin: 50% 95%;
+    transition: transform 0.3s ease-out;
+  }
+  .cat-golf-svg.windup { transform: rotate(-22deg); transition: transform 0.35s ease-out; }
+  .cat-golf-svg.swing  { transform: rotate(18deg);  transition: transform 0.15s ease-in; }
+  .cat-golf-svg.celebrate { animation: cat-celebrate 0.7s ease-in-out; }
+  .cat-golf-svg.pout      { animation: cat-pout 0.5s ease-in-out; }
+  @keyframes cat-celebrate {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    25%      { transform: translateY(-12px) rotate(-5deg); }
+    50%      { transform: translateY(-18px) rotate(4deg); }
+    75%      { transform: translateY(-10px) rotate(-2deg); }
+  }
+  @keyframes cat-pout {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    30%      { transform: translateX(-5px) rotate(-3deg); }
+    70%      { transform: translateX(5px) rotate(3deg); }
   }
 
   /* CUSTOMIZE */
@@ -679,7 +700,7 @@
     },
   };
 
-  function buildCat(cat) {
+  function buildCatInner(cat) {
     const fur = cat.fur_color;
     const eye = cat.eye_color;
     const p = (CAT_PARTS.patterns[cat.pattern] || CAT_PARTS.patterns.solid)(cat) || '';
@@ -688,7 +709,6 @@
     const hat = (CAT_PARTS.hats[cat.hat] || CAT_PARTS.hats.none)(cat);
     const accessory = (CAT_PARTS.accessories[cat.accessory] || CAT_PARTS.accessories.none)(cat);
     return `
-<svg viewBox="0 0 200 240" class="cat-svg" xmlns="http://www.w3.org/2000/svg">
   <g class="cat-tail">
     <path d="M148,180 Q200,150 188,90 Q183,72 196,68"
           fill="none" stroke="${fur}" stroke-width="16" stroke-linecap="round"/>
@@ -722,7 +742,10 @@
   </g>
   <g class="cat-hat">${hat}</g>
   <g class="cat-accessory">${accessory}</g>
-</svg>`;
+`;
+  }
+  function buildCat(cat) {
+    return `<svg viewBox="0 0 200 240" class="cat-svg" xmlns="http://www.w3.org/2000/svg">${buildCatInner(cat)}</svg>`;
   }
 
   function renderCat(cat) {
@@ -880,11 +903,39 @@
                L${holeX*CELL + CELL/2 + 12},${holeY*CELL + CELL/2 - CELL*0.22}
                L${holeX*CELL + CELL/2 + 1},${holeY*CELL + CELL/2 - CELL*0.12} Z"
             fill="#e53935"/>`;
-    const ballSvg = `<circle id="ball" cx="${ball.x*CELL}" cy="${ball.y*CELL}" r="${CELL*0.22}" fill="#fff" stroke="#5d4037" stroke-width="1.5"/>`;
-    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${tiles}${teeMark}${cup}${ballSvg}</svg>`;
+    const ballCx = ball.x * CELL, ballCy = ball.y * CELL;
+    const catW = CELL * 2, catH = CELL * 1.9;
+    const catX = ballCx - catW / 2;
+    const catY = ballCy - catH * 0.6;
+    const catGolf = `<svg x="${catX}" y="${catY}" width="${catW}" height="${catH}" viewBox="0 0 200 240" class="cat-golf-svg" id="cat-golf">${buildCatInner(CATS[0])}</svg>`;
+    const ballSvg = `<circle id="ball" cx="${ballCx}" cy="${ballCy}" r="${CELL*0.22}" fill="#fff" stroke="#5d4037" stroke-width="1.5"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${tiles}${teeMark}${cup}${catGolf}${ballSvg}</svg>`;
   }
   function renderCourse() {
     $('view-course').innerHTML = buildCourse(currentHole);
+  }
+
+  let swinging = false;
+  function swingCat() {
+    if (swinging) return;
+    const c = document.getElementById('cat-golf');
+    if (!c) return;
+    swinging = true;
+    c.classList.add('windup');
+    setTimeout(() => {
+      c.classList.remove('windup');
+      c.classList.add('swing');
+      setTimeout(() => {
+        c.classList.remove('swing');
+        const happy = Math.random() > 0.4;
+        const reaction = happy ? 'celebrate' : 'pout';
+        c.classList.add(reaction);
+        setTimeout(() => {
+          c.classList.remove(reaction);
+          swinging = false;
+        }, happy ? 700 : 500);
+      }, 150);
+    }, 350);
   }
 
   let activeView = 'chef';
@@ -1187,6 +1238,7 @@
   $('cat-mount').addEventListener('click', openCustomize);
   $('btn-customize-done').addEventListener('click', closeCustomize);
   $('view-toggle').addEventListener('click', () => setView(activeView === 'chef' ? 'course' : 'chef'));
+  $('view-course').addEventListener('click', swingCat);
   $('join-input').addEventListener('input', e => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
   });
