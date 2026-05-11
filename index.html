@@ -192,6 +192,48 @@
   .cat-svg { width: min(72vw, 320px); height: auto; display: block; overflow: visible; }
   .cat-mount-preview .cat-svg { width: min(45vw, 200px); }
 
+  /* VIEW TOGGLE + STAGES */
+  .view {
+    display: none;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+  .view.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  .view-toggle-btn {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 0.5rem);
+    left: 0.75rem;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(255, 214, 165, 0.9);
+    border-radius: 1rem;
+    border: none;
+    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.2);
+    color: #5d4037;
+    z-index: 10;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .view-toggle-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 rgba(93, 64, 55, 0.2);
+  }
+  .course-svg {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 0 rgba(93, 64, 55, 0.2);
+    display: block;
+  }
+
   /* CUSTOMIZE */
   #screen-customize {
     justify-content: flex-start;
@@ -343,6 +385,7 @@
 </div>
 
 <div id="screen-game" class="screen">
+  <button id="view-toggle" class="view-toggle-btn" type="button">Course</button>
   <div class="game-top">
     <div class="top-row">
       <div id="tip-counter" class="tip-counter">$0</div>
@@ -351,12 +394,15 @@
     <p class="hint" id="game-hint">Play the order</p>
   </div>
   <div class="game-stage">
-    <div id="ticket" class="ticket">
-      <div class="ticket-label">Order</div>
-      <div id="ticket-name" class="ticket-name"></div>
-      <div id="ticket-notes" class="ticket-notes"></div>
+    <div id="view-chef" class="view view-chef active">
+      <div id="ticket" class="ticket">
+        <div class="ticket-label">Order</div>
+        <div id="ticket-name" class="ticket-name"></div>
+        <div id="ticket-notes" class="ticket-notes"></div>
+      </div>
+      <div id="cat-mount" class="cat-mount"></div>
     </div>
-    <div id="cat-mount" class="cat-mount"></div>
+    <div id="view-course" class="view view-course"></div>
   </div>
   <div id="piano" class="piano"></div>
 </div>
@@ -773,6 +819,86 @@
   ];
   function findRecipe(id) { return RECIPES.find(r => r.id === id); }
 
+  /* ---------- COURSE / HOLES ---------- */
+  /* tile codes: 0 grass, 1 sand, 2 water, 3 wall, 4 tee, 5 hole */
+  const HOLES = [
+    {
+      id: 'hole-1',
+      name: 'Whiskers Way',
+      par: 3,
+      layout: [
+        [3,3,3,3,3,3,3,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,4,0,0,0,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,0,0,1,1,0,3],
+        [3,0,0,0,1,1,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,2,2,0,0,0,3],
+        [3,0,2,2,0,0,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,0,0,0,5,0,3],
+        [3,3,3,3,3,3,3,3],
+      ],
+      hazards: [],
+      tee_position: [2, 2],
+      hole_position: [5, 10],
+    },
+  ];
+
+  let currentHole = HOLES[0];
+  let ball = { x: 0, y: 0 };
+
+  function setBallToTee(hole) {
+    const [tx, ty] = hole.tee_position;
+    ball.x = tx + 0.5;
+    ball.y = ty + 0.5;
+  }
+  function buildCourse(hole) {
+    const CELL = 40;
+    const cols = hole.layout[0].length;
+    const rows = hole.layout.length;
+    const w = cols * CELL, h = rows * CELL;
+    const TILE = {
+      0: '#8bc34a', // grass
+      1: '#ffd180', // sand
+      2: '#4fc3f7', // water
+      3: '#6d4c41', // wall
+      4: '#9ccc65', // tee (lighter grass)
+      5: '#8bc34a', // hole tile (cup drawn on top)
+    };
+    let tiles = '';
+    hole.layout.forEach((row, y) => {
+      row.forEach((cell, x) => {
+        tiles += `<rect x="${x*CELL}" y="${y*CELL}" width="${CELL}" height="${CELL}" fill="${TILE[cell] || TILE[0]}"/>`;
+      });
+    });
+    const [teeX, teeY] = hole.tee_position;
+    const teeMark = `<circle cx="${teeX*CELL + CELL/2}" cy="${teeY*CELL + CELL/2}" r="${CELL*0.32}" fill="#fff" opacity="0.45"/>`;
+    const [holeX, holeY] = hole.hole_position;
+    const cup = `
+      <circle cx="${holeX*CELL + CELL/2}" cy="${holeY*CELL + CELL/2}" r="${CELL*0.34}" fill="#1a1a1a"/>
+      <rect x="${holeX*CELL + CELL/2 - 1}" y="${holeY*CELL + CELL/2 - CELL*0.34}" width="2" height="${CELL*0.7}" fill="#5d4037"/>
+      <path d="M${holeX*CELL + CELL/2 + 1},${holeY*CELL + CELL/2 - CELL*0.32}
+               L${holeX*CELL + CELL/2 + 12},${holeY*CELL + CELL/2 - CELL*0.22}
+               L${holeX*CELL + CELL/2 + 1},${holeY*CELL + CELL/2 - CELL*0.12} Z"
+            fill="#e53935"/>`;
+    const ballSvg = `<circle id="ball" cx="${ball.x*CELL}" cy="${ball.y*CELL}" r="${CELL*0.22}" fill="#fff" stroke="#5d4037" stroke-width="1.5"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${tiles}${teeMark}${cup}${ballSvg}</svg>`;
+  }
+  function renderCourse() {
+    $('view-course').innerHTML = buildCourse(currentHole);
+  }
+
+  let activeView = 'chef';
+  function setView(name) {
+    activeView = name;
+    $('view-chef').classList.toggle('active', name === 'chef');
+    $('view-course').classList.toggle('active', name === 'course');
+    $('view-toggle').textContent = name === 'chef' ? 'Course' : 'Cafe';
+    if (name === 'course') renderCourse();
+  }
+
   let chipEls = [];
   function renderTicket(recipe) {
     const t = $('ticket');
@@ -1063,6 +1189,7 @@
   $('btn-join-back').addEventListener('click', backToMenu);
   $('cat-mount').addEventListener('click', openCustomize);
   $('btn-customize-done').addEventListener('click', closeCustomize);
+  $('view-toggle').addEventListener('click', () => setView(activeView === 'chef' ? 'course' : 'chef'));
   $('join-input').addEventListener('input', e => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
   });
@@ -1073,6 +1200,8 @@
   renderCat(CATS[0]);
   startOrder(RECIPES[0]);
   updateTipDisplay(false);
+  setBallToTee(currentHole);
+  renderCourse();
 
   /* keyboard 1-8 → piano keys (only on game screen) */
   document.addEventListener('keydown', e => {
