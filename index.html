@@ -9,11 +9,19 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; width: 100%; overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   body {
-    background: #fdf6e3;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% 0%, #fff5e1 0%, #fdf6e3 45%, #f3e5c0 100%);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     color: #5d4037;
     padding-top: env(safe-area-inset-top);
     position: relative;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(93,64,55,0.12) 100%);
+    z-index: 999;
   }
   input { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 
@@ -36,32 +44,52 @@
   button {
     font: inherit;
     color: #5d4037;
-    background: #ffd6a5;
+    background: linear-gradient(180deg, #ffe6c4 0%, #ffd6a5 55%, #f0b97f 100%);
     border: none;
     border-radius: 1.25rem;
     padding: 1.25rem 1.5rem;
     font-size: 1.5rem;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 0 rgba(93, 64, 55, 0.25);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.65),
+      inset 0 -2px 0 rgba(93,64,55,0.08),
+      0 4px 0 rgba(93, 64, 55, 0.25),
+      0 6px 10px rgba(93, 64, 55, 0.15);
     transition: transform 0.08s ease, box-shadow 0.08s ease;
     width: 100%;
     max-width: 22rem;
   }
-  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(93, 64, 55, 0.25); }
-  .join { background: #caffbf; }
-  .back { background: #f0e0d0; font-size: 1rem; padding: 0.75rem 1.25rem; max-width: 8rem; }
+  button:active {
+    transform: translateY(2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.45),
+      inset 0 -2px 0 rgba(93,64,55,0.08),
+      0 2px 0 rgba(93, 64, 55, 0.25),
+      0 3px 6px rgba(93, 64, 55, 0.15);
+  }
+  .join { background: linear-gradient(180deg, #ddffd4 0%, #caffbf 55%, #9adf8d 100%); }
+  .dev  { background: linear-gradient(180deg, #d6c5e8 0%, #b8a0db 55%, #7d57b3 100%); color: #2a1640; }
+  .back {
+    background: linear-gradient(180deg, #f7ebde 0%, #f0e0d0 55%, #d8c2a8 100%);
+    font-size: 1rem; padding: 0.75rem 1.25rem; max-width: 8rem;
+  }
 
   .code-box {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: clamp(3rem, 18vw, 6rem);
     font-weight: 700;
     letter-spacing: 0.4rem;
-    background: #fff5e1;
+    background: linear-gradient(180deg, #fffbef 0%, #fff5e1 55%, #f0e0bb 100%);
     color: #5d4037;
     padding: 1rem 1.5rem;
     border-radius: 1.25rem;
     border: 3px dashed #d4a574;
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,0.7),
+      inset 0 -3px 6px rgba(93,64,55,0.1),
+      0 4px 12px rgba(93,64,55,0.18);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
     text-align: center;
     text-transform: uppercase;
   }
@@ -101,6 +129,7 @@
     font-size: 1.7rem;
     font-weight: 700;
     color: #5d4037;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7), 0 2px 3px rgba(93,64,55,0.18);
     transition: color 0.2s ease;
   }
   .day-timer {
@@ -138,11 +167,14 @@
 
   /* ORDER TICKET */
   .ticket {
-    background: #fffaee;
+    background: linear-gradient(180deg, #fffefa 0%, #fffaee 55%, #f0e3c8 100%);
     border: 2px dashed #d4a574;
     border-radius: 0.85rem;
     padding: 0.65rem 1rem 0.8rem;
-    box-shadow: 0 3px 0 rgba(93, 64, 55, 0.15);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.7),
+      0 2px 0 rgba(93,64,55,0.15),
+      0 8px 14px rgba(93,64,55,0.22);
     transform: rotate(-2deg);
     text-align: center;
     min-width: 12rem;
@@ -175,17 +207,23 @@
     width: 1.9rem;
     height: 1.9rem;
     border-radius: 50%;
-    background: #ffd6a5;
+    background: radial-gradient(circle at 30% 25%, #fff1d8 0%, #ffd6a5 55%, #d99a5a 100%);
     color: #5d4037;
     font-weight: 700;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 1rem;
-    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.18);
-    transition: background 0.15s ease, transform 0.15s ease;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 2px 3px rgba(93, 64, 55, 0.28);
+    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
   .note-chip.played {
-    background: #a8e6a3;
+    background: radial-gradient(circle at 30% 25%, #d8ffce 0%, #a8e6a3 55%, #5fb158 100%);
     transform: scale(1.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.7),
+      0 2px 4px rgba(93, 64, 55, 0.28),
+      0 0 10px rgba(168,230,163,0.6);
   }
   /* CAT */
   .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
@@ -210,10 +248,13 @@
     padding: 0.3rem 0.8rem;
     font-size: 0.8rem;
     font-weight: 600;
-    background: #ffd6a5;
+    background: linear-gradient(180deg, #ffe6c4 0%, #ffd6a5 55%, #f0b97f 100%);
     border-radius: 0.7rem;
     border: none;
-    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.2);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.55),
+      0 2px 0 rgba(93, 64, 55, 0.2),
+      0 3px 5px rgba(93,64,55,0.15);
     color: #5d4037;
     cursor: pointer;
     font-family: inherit;
@@ -221,13 +262,17 @@
   }
   .view-toggle-btn:active {
     transform: translateY(1px);
-    box-shadow: 0 1px 0 rgba(93, 64, 55, 0.2);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      0 1px 0 rgba(93, 64, 55, 0.2);
   }
   .course-svg {
     max-width: 100%;
     max-height: 100%;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 0 rgba(93, 64, 55, 0.2);
+    box-shadow:
+      0 2px 0 rgba(93, 64, 55, 0.18),
+      0 8px 20px rgba(93, 64, 55, 0.3);
     display: block;
     cursor: pointer;
   }
@@ -250,6 +295,59 @@
     0%, 100% { transform: translateX(0) rotate(0); }
     30%      { transform: translateX(-5px) rotate(-3deg); }
     70%      { transform: translateX(5px) rotate(3deg); }
+  }
+  .cat-golf-svg.big-celebrate {
+    animation: cat-big-celebrate 1.4s ease-in-out;
+  }
+  @keyframes cat-big-celebrate {
+    0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+    10%      { transform: translateY(-22px) rotate(-12deg) scale(1.12); }
+    25%      { transform: translateY(-34px) rotate(10deg)  scale(1.15); }
+    40%      { transform: translateY(-16px) rotate(-8deg)  scale(1.08); }
+    55%      { transform: translateY(-28px) rotate(8deg)   scale(1.12); }
+    70%      { transform: translateY(-12px) rotate(-4deg)  scale(1.05); }
+    85%      { transform: translateY(-6px)  rotate(2deg)   scale(1.02); }
+  }
+  .view-course { position: relative; }
+  .course-score {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #5d4037;
+    background: linear-gradient(180deg, #fffaee 0%, #f5e6c4 100%);
+    padding: 0.35rem 1rem;
+    border-radius: 0.75rem;
+    border: 2px dashed #d4a574;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 2px 0 rgba(93,64,55,0.18),
+      0 4px 8px rgba(93,64,55,0.2);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+  }
+  .course-toast {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.4);
+    font-size: clamp(1.8rem, 8vw, 2.8rem);
+    font-weight: 800;
+    color: #5d4037;
+    text-shadow:
+      0 2px 0 rgba(255,255,255,0.85),
+      0 4px 12px rgba(93,64,55,0.55);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+    white-space: nowrap;
+  }
+  .course-toast.show {
+    animation: toast-pop 1.6s ease-out forwards;
+  }
+  @keyframes toast-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+    30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+    78%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
   }
 
   /* CUSTOMIZE */
@@ -285,17 +383,20 @@
   .option-btn {
     padding: 0.5rem 1rem;
     border-radius: 1rem;
-    background: #fff5e1;
+    background: linear-gradient(180deg, #fffaef 0%, #fff5e1 55%, #ecdcbb 100%);
     border: 2px solid transparent;
     font: inherit;
     font-weight: 600;
     color: #5d4037;
     text-transform: capitalize;
     cursor: pointer;
-    box-shadow: 0 2px 0 rgba(93, 64, 55, 0.15);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 2px 0 rgba(93, 64, 55, 0.15),
+      0 3px 5px rgba(93, 64, 55, 0.1);
   }
   .option-btn.selected {
-    background: #ffd6a5;
+    background: linear-gradient(180deg, #ffe6c4 0%, #ffd6a5 55%, #f0b97f 100%);
     border-color: #5d4037;
   }
   .cat-tail {
@@ -347,7 +448,7 @@
   .key {
     flex: 1 1 0;
     min-width: 0;
-    background: #fff8e7;
+    background: linear-gradient(180deg, #fffefb 0%, #fff8e7 55%, #ecdeb8 100%);
     border-radius: 0 0 0.9rem 0.9rem;
     display: flex;
     align-items: flex-end;
@@ -360,13 +461,22 @@
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
-    box-shadow: inset 0 -8px 0 rgba(93, 64, 55, 0.12);
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.9),
+      inset 2px 0 0 rgba(255,255,255,0.55),
+      inset -2px 0 0 rgba(93,64,55,0.12),
+      inset 0 -10px 0 rgba(93, 64, 55, 0.14),
+      0 1px 2px rgba(93,64,55,0.15);
     transition: transform 0.05s ease, background 0.05s ease, box-shadow 0.05s ease;
   }
   .key.pressed {
-    background: #f5e0b8;
-    transform: translateY(2px);
-    box-shadow: inset 0 -4px 0 rgba(93, 64, 55, 0.18);
+    background: linear-gradient(180deg, #e8d3a3 0%, #f5e0b8 55%, #d5bc88 100%);
+    transform: translateY(3px);
+    box-shadow:
+      inset 0 4px 6px rgba(93, 64, 55, 0.3),
+      inset 2px 0 0 rgba(93, 64, 55, 0.1),
+      inset -2px 0 0 rgba(93, 64, 55, 0.1),
+      inset 0 -3px 0 rgba(93, 64, 55, 0.15);
   }
 </style>
 </head>
@@ -377,7 +487,19 @@
   <div class="menu">
     <button id="btn-host" type="button">Host Game</button>
     <button id="btn-join" class="join" type="button">Join Game</button>
+    <button id="btn-dev" class="dev" type="button">Dev</button>
   </div>
+</div>
+
+<div id="screen-dev" class="screen">
+  <h2>Dev Tools</h2>
+  <div class="menu">
+    <button id="btn-solo" type="button">Solo Play</button>
+    <button id="btn-dev-customize" class="join" type="button">Customize Cat</button>
+    <button id="btn-dev-end-day" class="dev" type="button">Force Day End</button>
+  </div>
+  <p class="hint">Solo skips peer pairing. Game runs on this phone only.</p>
+  <button id="btn-dev-back" class="back" type="button">Back</button>
 </div>
 
 <div id="screen-host" class="screen">
@@ -447,6 +569,13 @@
   <div class="customize-section">
     <div class="section-label">Bowtie / Scarf</div>
     <div id="accessory-options" class="option-row"></div>
+  </div>
+  <div class="customize-section">
+    <div class="section-label">Golf Style</div>
+    <div id="style-options" class="option-row"></div>
+    <p class="hint" style="font-size:0.75rem; margin-top:0.4rem; opacity:0.7;">
+      power: long + wild &nbsp;|&nbsp; finesse: short + sharp &nbsp;|&nbsp; lucky: random &nbsp;|&nbsp; chaotic: pure mess
+    </p>
   </div>
   <button id="btn-customize-done" type="button">Done</button>
 </div>
@@ -709,12 +838,18 @@
     const hat = (CAT_PARTS.hats[cat.hat] || CAT_PARTS.hats.none)(cat);
     const accessory = (CAT_PARTS.accessories[cat.accessory] || CAT_PARTS.accessories.none)(cat);
     return `
+  <ellipse cx="100" cy="232" rx="58" ry="5" fill="#000" opacity="0.22"/>
   <g class="cat-tail">
     <path d="M148,180 Q200,150 188,90 Q183,72 196,68"
           fill="none" stroke="${fur}" stroke-width="16" stroke-linecap="round"/>
+    <path d="M148,180 Q200,150 188,90 Q183,72 196,68"
+          fill="none" stroke="#000" stroke-width="16" stroke-linecap="round" opacity="0.12"
+          stroke-dasharray="0 18 200"/>
   </g>
   <g class="cat-body">
     <ellipse cx="100" cy="182" rx="56" ry="48" fill="${fur}"/>
+    <ellipse cx="92" cy="200" rx="44" ry="26" fill="#fff" opacity="0.18"/>
+    <ellipse cx="100" cy="155" rx="50" ry="10" fill="#000" opacity="0.1"/>
     <g class="cat-pattern">${bodyPattern}</g>
   </g>
   <g class="cat-head">
@@ -723,6 +858,10 @@
     <path d="M73,74 L77,52 L88,68 Z" fill="#f4a8a8"/>
     <path d="M127,74 L123,52 L112,68 Z" fill="#f4a8a8"/>
     <ellipse cx="100" cy="108" rx="50" ry="44" fill="${fur}"/>
+    <ellipse cx="92" cy="92" rx="36" ry="14" fill="#fff" opacity="0.14"/>
+    <ellipse cx="80" cy="88" rx="14" ry="5" fill="#000" opacity="0.16"/>
+    <ellipse cx="120" cy="88" rx="14" ry="5" fill="#000" opacity="0.16"/>
+    <ellipse cx="100" cy="142" rx="30" ry="6" fill="#000" opacity="0.13"/>
     <g class="cat-pattern-head">${headPattern}</g>
     <g stroke="#5d4037" stroke-width="1.2" stroke-linecap="round" opacity="0.7">
       <line x1="48" y1="118" x2="78" y2="118"/>
@@ -733,10 +872,13 @@
     <g class="cat-eyes">
       <ellipse cx="83" cy="108" rx="6.5" ry="10.5" fill="${eye}"/>
       <ellipse cx="117" cy="108" rx="6.5" ry="10.5" fill="${eye}"/>
-      <circle cx="85" cy="104" r="2.2" fill="#fff"/>
-      <circle cx="119" cy="104" r="2.2" fill="#fff"/>
+      <ellipse cx="84.5" cy="103" rx="2.6" ry="3.4" fill="#fff"/>
+      <ellipse cx="118.5" cy="103" rx="2.6" ry="3.4" fill="#fff"/>
+      <circle cx="81" cy="112" r="1.1" fill="#fff" opacity="0.7"/>
+      <circle cx="115" cy="112" r="1.1" fill="#fff" opacity="0.7"/>
     </g>
     <path d="M96,122 L104,122 L100,128 Z" fill="#f4a8a8"/>
+    <ellipse cx="99" cy="123.5" rx="1.6" ry="1" fill="#fff" opacity="0.75"/>
     <path d="M100,128 Q94,134 89,131 M100,128 Q106,134 111,131"
           stroke="#5d4037" stroke-width="1.4" fill="none" stroke-linecap="round"/>
   </g>
@@ -755,6 +897,7 @@
   /* ---------- CUSTOMIZE ---------- */
   const FUR_COLORS = ['#e8a96b', '#a0a0a8', '#f5e0c2', '#3e2723', '#d4b896', '#d97a3c', '#0d0d0d'];
   const EYE_COLORS = ['#1a1a1a', '#4caf50', '#1976d2', '#ffa726'];
+  const GOLF_STYLES = ['power', 'finesse', 'lucky', 'chaotic'];
   const STORAGE_KEY = 'purrfect-cat-v1';
 
   function saveCustomCat() {
@@ -809,6 +952,7 @@
     buildOptions('pattern-options', Object.keys(CAT_PARTS.patterns), cat.pattern, p => updateCat({ pattern: p }));
     buildOptions('hat-options', Object.keys(CAT_PARTS.hats), cat.hat, h => updateCat({ hat: h }));
     buildOptions('accessory-options', Object.keys(CAT_PARTS.accessories), cat.accessory, a => updateCat({ accessory: a }));
+    buildOptions('style-options', GOLF_STYLES, cat.golf_style, s => updateCat({ golf_style: s }));
   }
   function updateCat(changes) {
     Object.assign(CATS[0], changes);
@@ -867,57 +1011,171 @@
   ];
 
   let currentHole = HOLES[0];
-  let ball = { x: 0, y: 0 };
+  let ball = { x: 0, y: 0, vx: 0, vy: 0, atRest: true };
+  let catPos = { x: 0, y: 0 };
+  let strokes = 0;
+  let physicsRaf = 0;
+  let lastPhysicsTime = 0;
 
   function setBallToTee(hole) {
     const [tx, ty] = hole.tee_position;
     ball.x = tx + 0.5;
     ball.y = ty + 0.5;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.atRest = true;
+  }
+  function setCatToTee(hole) {
+    const [tx, ty] = hole.tee_position;
+    catPos.x = tx + 0.5;
+    catPos.y = ty + 0.5;
   }
   function buildCourse(hole) {
     const CELL = 40;
     const cols = hole.layout[0].length;
     const rows = hole.layout.length;
     const w = cols * CELL, h = rows * CELL;
-    const TILE = {
-      0: '#8bc34a', // grass
-      1: '#ffd180', // sand
-      2: '#4fc3f7', // water
-      3: '#6d4c41', // wall
-      4: '#9ccc65', // tee (lighter grass)
-      5: '#8bc34a', // hole tile (cup drawn on top)
-    };
+    const defs = `
+      <defs>
+        <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#a3d959"/>
+          <stop offset="100%" stop-color="#7ab83d"/>
+        </linearGradient>
+        <linearGradient id="teeGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#bce070"/>
+          <stop offset="100%" stop-color="#8cc04e"/>
+        </linearGradient>
+        <linearGradient id="sandGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffe0a8"/>
+          <stop offset="100%" stop-color="#e8b566"/>
+        </linearGradient>
+        <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#82d8ff"/>
+          <stop offset="50%" stop-color="#4fc3f7"/>
+          <stop offset="100%" stop-color="#2196d6"/>
+        </linearGradient>
+        <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#8a6750"/>
+          <stop offset="55%" stop-color="#6d4c41"/>
+          <stop offset="100%" stop-color="#4a2f25"/>
+        </linearGradient>
+        <radialGradient id="ballGrad" cx="0.35" cy="0.3" r="0.75">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="65%" stop-color="#f0ece0"/>
+          <stop offset="100%" stop-color="#b8b3a2"/>
+        </radialGradient>
+        <radialGradient id="cupGrad" cx="0.5" cy="0.45" r="0.5">
+          <stop offset="0%" stop-color="#000000"/>
+          <stop offset="75%" stop-color="#1a1a1a"/>
+          <stop offset="100%" stop-color="#4a3028"/>
+        </radialGradient>
+      </defs>`;
     let tiles = '';
+    const GRADS = {
+      0: 'url(#grassGrad)',
+      1: 'url(#sandGrad)',
+      2: 'url(#waterGrad)',
+      3: 'url(#wallGrad)',
+      4: 'url(#teeGrad)',
+      5: 'url(#grassGrad)',
+    };
     hole.layout.forEach((row, y) => {
       row.forEach((cell, x) => {
-        tiles += `<rect x="${x*CELL}" y="${y*CELL}" width="${CELL}" height="${CELL}" fill="${TILE[cell] || TILE[0]}"/>`;
+        const px = x * CELL, py = y * CELL;
+        tiles += `<rect x="${px}" y="${py}" width="${CELL}" height="${CELL}" fill="${GRADS[cell] || GRADS[0]}"/>`;
+        if (cell === 0 || cell === 4 || cell === 5) {
+          const s = (x * 7 + y * 13) % 4;
+          if (s === 0) tiles += `<circle cx="${px+11}" cy="${py+9}" r="1.4" fill="#6ea832" opacity="0.45"/>`;
+          if (s === 1) tiles += `<circle cx="${px+28}" cy="${py+24}" r="1.2" fill="#9bd05a" opacity="0.55"/>`;
+          if (s === 2) tiles += `<circle cx="${px+18}" cy="${py+32}" r="1.3" fill="#6ea832" opacity="0.4"/>`;
+          if (s === 3) tiles += `<circle cx="${px+32}" cy="${py+7}" r="1.1" fill="#9bd05a" opacity="0.5"/>`;
+        } else if (cell === 1) {
+          tiles += `<circle cx="${px+10}" cy="${py+8}" r="1.1" fill="#b78440" opacity="0.45"/>`;
+          tiles += `<circle cx="${px+28}" cy="${py+22}" r="0.9" fill="#b78440" opacity="0.55"/>`;
+          tiles += `<circle cx="${px+18}" cy="${py+32}" r="0.8" fill="#b78440" opacity="0.4"/>`;
+          tiles += `<circle cx="${px+33}" cy="${py+34}" r="0.7" fill="#fff2dd" opacity="0.6"/>`;
+        } else if (cell === 2) {
+          tiles += `<rect x="${px}" y="${py}" width="${CELL}" height="3" fill="#1a73a8" opacity="0.45"/>`;
+          tiles += `<path d="M${px+4},${py+14} Q${px+12},${py+11} ${px+20},${py+14}" stroke="#bfeaff" stroke-width="1.2" fill="none" opacity="0.55"/>`;
+          tiles += `<path d="M${px+20},${py+28} Q${px+28},${py+25} ${px+36},${py+28}" stroke="#bfeaff" stroke-width="1.2" fill="none" opacity="0.55"/>`;
+        } else if (cell === 3) {
+          tiles += `<rect x="${px}" y="${py}" width="${CELL}" height="3" fill="#b08b6e" opacity="0.7"/>`;
+          tiles += `<rect x="${px}" y="${py+CELL-3}" width="${CELL}" height="3" fill="#321e15" opacity="0.55"/>`;
+        }
       });
     });
     const [teeX, teeY] = hole.tee_position;
     const teeMark = `<circle cx="${teeX*CELL + CELL/2}" cy="${teeY*CELL + CELL/2}" r="${CELL*0.32}" fill="#fff" opacity="0.45"/>`;
     const [holeX, holeY] = hole.hole_position;
+    const cupCx = holeX*CELL + CELL/2;
+    const cupCy = holeY*CELL + CELL/2;
     const cup = `
-      <circle cx="${holeX*CELL + CELL/2}" cy="${holeY*CELL + CELL/2}" r="${CELL*0.34}" fill="#1a1a1a"/>
-      <rect x="${holeX*CELL + CELL/2 - 1}" y="${holeY*CELL + CELL/2 - CELL*0.34}" width="2" height="${CELL*0.7}" fill="#5d4037"/>
-      <path d="M${holeX*CELL + CELL/2 + 1},${holeY*CELL + CELL/2 - CELL*0.32}
-               L${holeX*CELL + CELL/2 + 12},${holeY*CELL + CELL/2 - CELL*0.22}
-               L${holeX*CELL + CELL/2 + 1},${holeY*CELL + CELL/2 - CELL*0.12} Z"
-            fill="#e53935"/>`;
-    const ballCx = ball.x * CELL, ballCy = ball.y * CELL;
+      <ellipse cx="${cupCx}" cy="${cupCy + CELL*0.08}" rx="${CELL*0.36}" ry="${CELL*0.12}" fill="#000" opacity="0.25"/>
+      <circle cx="${cupCx}" cy="${cupCy}" r="${CELL*0.34}" fill="url(#cupGrad)"/>
+      <ellipse cx="${cupCx}" cy="${cupCy - CELL*0.18}" rx="${CELL*0.24}" ry="${CELL*0.06}" fill="#000" opacity="0.4"/>
+      <rect x="${cupCx - 1}" y="${cupCy - CELL*0.34}" width="2" height="${CELL*0.7}" fill="#5d4037"/>
+      <rect x="${cupCx - 1.5}" y="${cupCy - CELL*0.34}" width="1" height="${CELL*0.7}" fill="#fff" opacity="0.35"/>
+      <path d="M${cupCx + 1},${cupCy - CELL*0.32}
+               L${cupCx + 12},${cupCy - CELL*0.22}
+               L${cupCx + 1},${cupCy - CELL*0.12} Z"
+            fill="#e53935"/>
+      <path d="M${cupCx + 1},${cupCy - CELL*0.22}
+               L${cupCx + 12},${cupCy - CELL*0.22}
+               L${cupCx + 1},${cupCy - CELL*0.12} Z"
+            fill="#000" opacity="0.18"/>`;
+    const catCx = catPos.x * CELL, catCy = catPos.y * CELL;
     const catW = CELL * 2, catH = CELL * 1.9;
-    const catX = ballCx - catW / 2;
-    const catY = ballCy - catH * 0.6;
+    const catX = catCx - catW / 2;
+    const catY = catCy - catH * 0.6;
     const catGolf = `<svg x="${catX}" y="${catY}" width="${catW}" height="${catH}" viewBox="0 0 200 240" class="cat-golf-svg" id="cat-golf">${buildCatInner(CATS[0])}</svg>`;
-    const ballSvg = `<circle id="ball" cx="${ballCx}" cy="${ballCy}" r="${CELL*0.22}" fill="#fff" stroke="#5d4037" stroke-width="1.5"/>`;
-    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${tiles}${teeMark}${cup}${catGolf}${ballSvg}</svg>`;
+    const ballCx = ball.x * CELL, ballCy = ball.y * CELL;
+    const ballSvg = `
+      <ellipse id="ball-shadow" cx="${ballCx + 1}" cy="${ballCy + CELL*0.2}" rx="${CELL*0.22}" ry="${CELL*0.07}" fill="#000" opacity="0.32"/>
+      <circle id="ball" cx="${ballCx}" cy="${ballCy}" r="${CELL*0.22}" fill="url(#ballGrad)" stroke="#5d4037" stroke-width="1.2"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${defs}${tiles}${teeMark}${cup}${catGolf}${ballSvg}</svg>`;
   }
   function renderCourse() {
-    $('view-course').innerHTML = buildCourse(currentHole);
+    $('view-course').innerHTML = `
+      <div class="course-score">Strokes: <span id="course-strokes">${strokes}</span> / Par ${currentHole.par}</div>
+      ${buildCourse(currentHole)}
+      <div id="course-toast" class="course-toast"></div>
+    `;
+  }
+  function updateScore() {
+    const el = document.getElementById('course-strokes');
+    if (el) el.textContent = strokes;
+  }
+  function showToast(text) {
+    const t = document.getElementById('course-toast');
+    if (!t) return;
+    t.textContent = text;
+    t.classList.remove('show');
+    void t.offsetWidth;
+    t.classList.add('show');
+  }
+  function verdictText(s, par) {
+    if (s === 1) return 'Hole in One!';
+    const diff = s - par;
+    if (diff <= -3) return 'Albatross!';
+    if (diff === -2) return 'Eagle!';
+    if (diff === -1) return 'Birdie!';
+    if (diff === 0)  return 'Par!';
+    if (diff === 1)  return 'Bogey';
+    if (diff === 2)  return 'Double Bogey';
+    return '+' + diff;
+  }
+  function advanceOrResetHole() {
+    const idx = HOLES.findIndex(h => h.id === currentHole.id);
+    currentHole = HOLES[(idx + 1) % HOLES.length];
+    setBallToTee(currentHole);
+    setCatToTee(currentHole);
   }
 
   let swinging = false;
   function swingCat() {
     if (swinging) return;
+    if (!ball.atRest) return;
+    if (role === 'client') return; // Step 4 will route client swings to host
     const c = document.getElementById('cat-golf');
     if (!c) return;
     swinging = true;
@@ -927,15 +1185,146 @@
       c.classList.add('swing');
       setTimeout(() => {
         c.classList.remove('swing');
-        const happy = Math.random() > 0.4;
-        const reaction = happy ? 'celebrate' : 'pout';
-        c.classList.add(reaction);
-        setTimeout(() => {
-          c.classList.remove(reaction);
-          swinging = false;
-        }, happy ? 700 : 500);
+        launchBall();
       }, 150);
     }, 350);
+  }
+
+  function launchBall() {
+    const cat = CATS[0];
+    const [hx, hy] = currentHole.hole_position;
+    const targetX = hx + 0.5, targetY = hy + 0.5;
+    const dx = targetX - ball.x, dy = targetY - ball.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.001) { swinging = false; return; }
+    const style = cat.golf_style || 'finesse';
+    let powerMul, spread;
+    if (style === 'power')        { powerMul = 1.3;                         spread = 0.20; }
+    else if (style === 'finesse') { powerMul = 1.0;                         spread = 0.06; }
+    else if (style === 'lucky')   { powerMul = 0.85 + Math.random() * 0.5;  spread = 0.06 + Math.random() * 0.20; }
+    else if (style === 'chaotic') { powerMul = 0.5  + Math.random() * 1.0;  spread = 0.35; }
+    else                          { powerMul = 1.0;                         spread = 0.10; }
+    const baseAngle = Math.atan2(dy, dx);
+    const angle = baseAngle + (Math.random() - 0.5) * spread * 2;
+    const baseSpeed = Math.min(dist * 1.6, 10);
+    const v = baseSpeed * powerMul;
+    ball.vx = Math.cos(angle) * v;
+    ball.vy = Math.sin(angle) * v;
+    ball.atRest = false;
+    strokes += 1;
+    updateScore();
+    startPhysics();
+  }
+
+  function startPhysics() {
+    if (physicsRaf) return;
+    lastPhysicsTime = performance.now();
+    physicsRaf = requestAnimationFrame(physicsTick);
+  }
+  function stopPhysics() {
+    if (physicsRaf) cancelAnimationFrame(physicsRaf);
+    physicsRaf = 0;
+  }
+  function tileAt(gx, gy) {
+    const row = currentHole.layout[Math.floor(gy)];
+    if (!row) return 3;
+    const t = row[Math.floor(gx)];
+    return (t == null) ? 3 : t;
+  }
+  function physicsTick(now) {
+    physicsRaf = 0;
+    const dt = Math.min(0.033, (now - lastPhysicsTime) / 1000);
+    lastPhysicsTime = now;
+
+    const oldX = ball.x, oldY = ball.y;
+    const curTile = tileAt(ball.x, ball.y);
+
+    if (curTile === 2) { ballToWater(); return; }
+
+    let frictionRate = 1.4;          // grass / tee / hole tile
+    if (curTile === 1) frictionRate = 5.5;  // sand drags hard
+
+    const decay = Math.exp(-frictionRate * dt);
+    ball.vx *= decay;
+    ball.vy *= decay;
+
+    let newX = ball.x + ball.vx * dt;
+    let newY = ball.y + ball.vy * dt;
+
+    // Axis-separated wall reflection
+    if (tileAt(newX, oldY) === 3) {
+      ball.vx = -ball.vx * 0.55;
+      newX = oldX;
+    }
+    if (tileAt(newX, newY) === 3) {
+      ball.vy = -ball.vy * 0.55;
+      newY = oldY;
+    }
+
+    ball.x = newX;
+    ball.y = newY;
+
+    const [hxC, hyC] = currentHole.hole_position;
+    const dxh = ball.x - (hxC + 0.5);
+    const dyh = ball.y - (hyC + 0.5);
+    if (Math.sqrt(dxh * dxh + dyh * dyh) < 0.3) {
+      ballInHole();
+      return;
+    }
+
+    const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    if (speed < 0.06) {
+      ball.vx = 0; ball.vy = 0;
+      ballStopped();
+      return;
+    }
+
+    updateBallDOM();
+    physicsRaf = requestAnimationFrame(physicsTick);
+  }
+  function updateBallDOM() {
+    const CELL = 40;
+    const b = document.getElementById('ball');
+    const s = document.getElementById('ball-shadow');
+    if (b) { b.setAttribute('cx', ball.x * CELL); b.setAttribute('cy', ball.y * CELL); }
+    if (s) { s.setAttribute('cx', ball.x * CELL + 1); s.setAttribute('cy', ball.y * CELL + CELL * 0.2); }
+  }
+  function ballToWater() {
+    stopPhysics();
+    ball.vx = 0; ball.vy = 0;
+    strokes += 1; // penalty stroke
+    updateScore();
+    showToast('Splash! +1');
+    const c = document.getElementById('cat-golf');
+    if (c) c.classList.add('pout');
+    setTimeout(() => {
+      setBallToTee(currentHole);
+      setCatToTee(currentHole);
+      swinging = false;
+      renderCourse();
+    }, 700);
+  }
+  function ballInHole() {
+    stopPhysics();
+    ball.vx = 0; ball.vy = 0;
+    ball.atRest = true;
+    showToast(verdictText(strokes, currentHole.par));
+    const c = document.getElementById('cat-golf');
+    if (c) c.classList.add('big-celebrate');
+    setTimeout(() => {
+      advanceOrResetHole();
+      strokes = 0;
+      swinging = false;
+      renderCourse();
+    }, 1800);
+  }
+  function ballStopped() {
+    stopPhysics();
+    ball.atRest = true;
+    catPos.x = ball.x;
+    catPos.y = ball.y;
+    swinging = false;
+    renderCourse();
   }
 
   let activeView = 'chef';
@@ -1235,6 +1624,19 @@
   $('btn-connect').addEventListener('click', tryConnect);
   $('btn-host-back').addEventListener('click', backToMenu);
   $('btn-join-back').addEventListener('click', backToMenu);
+  $('btn-dev').addEventListener('click', () => show('screen-dev'));
+  $('btn-dev-back').addEventListener('click', () => show('screen-menu'));
+  $('btn-solo').addEventListener('click', () => {
+    ensureAudio();
+    cleanupPeer();
+    role = null;
+    show('screen-game');
+    startDay();
+  });
+  $('btn-dev-customize').addEventListener('click', openCustomize);
+  $('btn-dev-end-day').addEventListener('click', () => {
+    if (dayActive) { secondsLeft = 0; endDay(); }
+  });
   $('cat-mount').addEventListener('click', openCustomize);
   $('btn-customize-done').addEventListener('click', closeCustomize);
   $('view-toggle').addEventListener('click', () => setView(activeView === 'chef' ? 'course' : 'chef'));
@@ -1250,6 +1652,7 @@
   startOrder(RECIPES[0]);
   updateTipDisplay(false);
   setBallToTee(currentHole);
+  setCatToTee(currentHole);
   renderCourse();
 
   /* keyboard 1-8 → piano keys (only on game screen) */
