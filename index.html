@@ -1595,16 +1595,139 @@
       tip_value: 16,
       cat_dialogue: 'Bop bop please!',
     },
+    {
+      id: 'lonely_lemon',
+      name: 'Lonely Lemon',
+      chord: 'Dm',
+      notes: ['D', 'F', 'A'],
+      rhythm: [0.5, 0.5, 0.5],
+      difficulty: 1,
+      tip_value: 10,
+      cat_dialogue: 'A sour day...',
+    },
+    {
+      id: 'eclipse_eclair',
+      name: 'Eclipse Éclair',
+      chord: 'Em',
+      notes: ['E', 'G', 'B'],
+      rhythm: [0.5, 0.5, 0.5],
+      difficulty: 1,
+      tip_value: 10,
+      cat_dialogue: 'Shadow and cream...',
+    },
+    {
+      id: 'velvet_sigh',
+      name: 'Velvet Sigh',
+      chord: 'Em7',
+      notes: ['E', 'G', 'B', 'D'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Soft, so soft...',
+    },
+    {
+      id: 'daisy_dough',
+      name: 'Daisy Dough',
+      chord: 'D',
+      notes: ['D', 'F#', 'A'],
+      rhythm: [0.5, 0.5, 0.5],
+      difficulty: 1,
+      tip_value: 8,
+      cat_dialogue: 'Sunny and fresh!',
+    },
+    {
+      id: 'apricot_twist',
+      name: 'Apricot Twist',
+      chord: 'A',
+      notes: ['A', 'C#', 'E'],
+      rhythm: [0.5, 0.5, 0.5],
+      difficulty: 1,
+      tip_value: 8,
+      cat_dialogue: 'Tangy snap!',
+    },
+    {
+      id: 'anchovy_jazz',
+      name: 'Anchovy Jazz',
+      chord: 'A7',
+      notes: ['A', 'C#', 'E', 'G'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 16,
+      cat_dialogue: 'Bop a little!',
+    },
+    {
+      id: 'sparky_toast',
+      name: 'Sparky Toast',
+      chord: 'E7',
+      notes: ['E', 'G#', 'B', 'D'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 16,
+      cat_dialogue: 'Zing zing!',
+    },
+    {
+      id: 'cherry_blues',
+      name: 'Cherry Blues',
+      chord: 'C7',
+      notes: ['C', 'E', 'G', 'A#'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Slow and smoky...',
+    },
+    {
+      id: 'golden_gleam',
+      name: 'Golden Gleam',
+      chord: 'Gmaj7',
+      notes: ['G', 'B', 'D', 'F#'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Warm sunbeam!',
+    },
+    {
+      id: 'almond_whisper',
+      name: 'Almond Whisper',
+      chord: 'Am7',
+      notes: ['A', 'C', 'E', 'G'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Soft nutty hush...',
+    },
   ];
   function findRecipe(id) { return RECIPES.find(r => r.id === id); }
 
   /* ---------- PROGRESSIONS ---------- */
   const PROGRESSIONS = [
-    { name: 'Pop',             key: 'C', ids: ['cream_drop', 'salmon_tart', 'mouse_mousse', 'pawcakes'] },
-    { name: 'Jazz turnaround', key: 'C', ids: ['midnight_milk', 'jazzcake', 'tuna_souffle'] },
-    { name: 'Cozy',            key: 'C', ids: ['cream_drop', 'pawcakes', 'mouse_mousse', 'salmon_tart'] },
-    { name: 'Resolve',         key: 'C', ids: ['mouse_mousse', 'pawcakes', 'cream_drop', 'salmon_tart'] },
-    { name: 'Bluesy',          key: 'C', ids: ['cream_drop', 'espresso_shot', 'salmon_tart'] },
+    // C major core
+    { name: 'Pop',              key: 'C',  ids: ['cream_drop', 'salmon_tart', 'mouse_mousse', 'pawcakes'] },
+    { name: 'Cozy',             key: 'C',  ids: ['cream_drop', 'pawcakes', 'mouse_mousse', 'salmon_tart'] },
+    { name: 'Resolve',          key: 'C',  ids: ['mouse_mousse', 'pawcakes', 'cream_drop', 'salmon_tart'] },
+    { name: 'Doo-wop',          key: 'C',  ids: ['cream_drop', 'mouse_mousse', 'pawcakes', 'salmon_tart'] },
+    { name: 'Sad Ballad',       key: 'C',  ids: ['mouse_mousse', 'eclipse_eclair', 'pawcakes', 'cream_drop'] },
+    { name: 'Wistful',          key: 'C',  ids: ['lonely_lemon', 'mouse_mousse', 'pawcakes', 'cream_drop'] },
+    { name: 'Three-Chord Folk', key: 'C',  ids: ['cream_drop', 'pawcakes', 'salmon_tart'] },
+    // C jazz / sevenths
+    { name: 'Jazz turnaround',  key: 'C',  ids: ['midnight_milk', 'jazzcake', 'tuna_souffle'] },
+    { name: 'Cocktail',         key: 'C',  ids: ['tuna_souffle', 'almond_whisper', 'midnight_milk', 'jazzcake'] },
+    { name: 'Slow Drift',       key: 'C',  ids: ['tuna_souffle', 'midnight_milk', 'velvet_sigh', 'pawcakes'] },
+    { name: 'Smoky Bar',        key: 'C',  ids: ['cream_drop', 'cherry_blues', 'pawcakes', 'salmon_tart'] },
+    { name: 'Bluesy',           key: 'C',  ids: ['cream_drop', 'espresso_shot', 'salmon_tart'] },
+    // A minor
+    { name: 'Cool Minor',       key: 'Am', ids: ['mouse_mousse', 'lonely_lemon', 'eclipse_eclair', 'mouse_mousse'] },
+    { name: 'Andalusian',       key: 'Am', ids: ['mouse_mousse', 'salmon_tart', 'pawcakes', 'sparky_toast'] },
+    // G major
+    { name: 'Pop',              key: 'G',  ids: ['salmon_tart', 'daisy_dough', 'eclipse_eclair', 'cream_drop'] },
+    { name: 'Cozy',             key: 'G',  ids: ['salmon_tart', 'cream_drop', 'eclipse_eclair', 'daisy_dough'] },
+    { name: 'Resolve',          key: 'G',  ids: ['eclipse_eclair', 'cream_drop', 'salmon_tart', 'daisy_dough'] },
+    { name: 'Jangle',           key: 'G',  ids: ['salmon_tart', 'eclipse_eclair', 'cream_drop', 'daisy_dough'] },
+    { name: 'Jazz turnaround',  key: 'G',  ids: ['almond_whisper', 'espresso_shot', 'golden_gleam'] },
+    { name: 'Country',          key: 'G',  ids: ['salmon_tart', 'cream_drop', 'espresso_shot', 'salmon_tart'] },
+    // D / A
+    { name: 'Bright Trio',      key: 'D',  ids: ['daisy_dough', 'apricot_twist', 'salmon_tart'] },
+    { name: 'Bop',              key: 'D',  ids: ['daisy_dough', 'anchovy_jazz', 'daisy_dough'] },
+    { name: 'Train',            key: 'A',  ids: ['apricot_twist', 'daisy_dough', 'apricot_twist', 'sparky_toast'] },
   ];
   let currentProgressionIdx = -1;
   let progressionStep = 0;
@@ -1626,13 +1749,9 @@
   }
   function nextProgressionRecipe() {
     if (currentProgressionIdx < 0) pickProgression();
-    let p = PROGRESSIONS[currentProgressionIdx];
-    if (!p || progressionStep >= p.ids.length) {
-      pickProgression();
-      p = PROGRESSIONS[currentProgressionIdx];
-      if (!p) return RECIPES[0];
-    }
-    const id = p.ids[progressionStep];
+    const p = PROGRESSIONS[currentProgressionIdx];
+    if (!p) return RECIPES[0];
+    const id = p.ids[progressionStep % p.ids.length];
     progressionStep += 1;
     return findRecipe(id) || RECIPES[0];
   }
