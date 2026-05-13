@@ -670,10 +670,11 @@
     min-height: 126px;
     display: flex;
     background: #5d4037;
-    padding: 0.5rem 4px calc(0.5rem + env(safe-area-inset-bottom)) 4px;
+    padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom)) 0;
     gap: 4px;
     flex-shrink: 0;
     touch-action: none;
+    position: relative;
   }
   .key {
     flex: 1 1 0;
@@ -698,6 +699,7 @@
       inset 0 -10px 0 rgba(93, 64, 55, 0.14),
       0 1px 2px rgba(93,64,55,0.15);
     transition: transform 0.05s ease, background 0.05s ease, box-shadow 0.05s ease;
+    z-index: 1;
   }
   .key.pressed {
     background: linear-gradient(180deg, #e8d3a3 0%, #f5e0b8 55%, #d5bc88 100%);
@@ -707,6 +709,35 @@
       inset 2px 0 0 rgba(93, 64, 55, 0.1),
       inset -2px 0 0 rgba(93, 64, 55, 0.1),
       inset 0 -3px 0 rgba(93, 64, 55, 0.15);
+  }
+  .key.black {
+    position: absolute;
+    top: 0.5rem;
+    width: 9%;
+    height: 60%;
+    transform: translateX(-50%);
+    flex: none;
+    padding-bottom: 0.4rem;
+    background: linear-gradient(180deg, #4a3a32 0%, #2a1f1a 55%, #120a06 100%);
+    border-radius: 0 0 0.6rem 0.6rem;
+    color: #fdf6e3;
+    font-size: 0.8rem;
+    box-shadow:
+      inset 0 2px 2px rgba(255,255,255,0.22),
+      inset 2px 0 0 rgba(255,255,255,0.05),
+      inset -2px 0 0 rgba(0,0,0,0.45),
+      inset 0 -8px 0 rgba(0,0,0,0.4),
+      0 3px 5px rgba(0,0,0,0.45);
+    z-index: 3;
+  }
+  .key.black.pressed {
+    background: linear-gradient(180deg, #2a1f1a 0%, #1a120e 55%, #060300 100%);
+    transform: translateX(-50%) translateY(2px);
+    box-shadow:
+      inset 0 4px 6px rgba(0,0,0,0.6),
+      inset 2px 0 0 rgba(0,0,0,0.3),
+      inset -2px 0 0 rgba(0,0,0,0.3),
+      inset 0 -3px 0 rgba(0,0,0,0.45);
   }
 </style>
 </head>
@@ -2369,14 +2400,19 @@
 
   /* ---------- PIANO ---------- */
   const NOTES = [
-    { note: 'C4', label: 'C' },
-    { note: 'D4', label: 'D' },
-    { note: 'E4', label: 'E' },
-    { note: 'F4', label: 'F' },
-    { note: 'G4', label: 'G' },
-    { note: 'A4', label: 'A' },
-    { note: 'B4', label: 'B' },
-    { note: 'C5', label: 'C' },
+    { note: 'C4',  label: 'C' },
+    { note: 'C#4', label: 'C#', black: true, pos: 0.125 },
+    { note: 'D4',  label: 'D' },
+    { note: 'D#4', label: 'D#', black: true, pos: 0.25 },
+    { note: 'E4',  label: 'E' },
+    { note: 'F4',  label: 'F' },
+    { note: 'F#4', label: 'F#', black: true, pos: 0.5 },
+    { note: 'G4',  label: 'G' },
+    { note: 'G#4', label: 'G#', black: true, pos: 0.625 },
+    { note: 'A4',  label: 'A' },
+    { note: 'A#4', label: 'A#', black: true, pos: 0.75 },
+    { note: 'B4',  label: 'B' },
+    { note: 'C5',  label: 'C' },
   ];
   const keyEls = [];
   const pressedIndices = new Set();
@@ -2408,10 +2444,15 @@
   }
   function buildPiano() {
     const piano = $('piano');
-    NOTES.forEach(({ label }, i) => {
+    NOTES.forEach((n, i) => {
       const k = document.createElement('div');
-      k.className = 'key';
-      k.textContent = label;
+      if (n.black) {
+        k.className = 'key black';
+        k.style.left = (n.pos * 100) + '%';
+      } else {
+        k.className = 'key';
+        k.textContent = n.label;
+      }
       keyEls.push(k);
       piano.appendChild(k);
     });
@@ -2835,17 +2876,22 @@
   setCatToTee(currentHole);
   renderCourse();
 
-  /* keyboard 1-8 → piano keys (only on game screen) */
+  /* keyboard -> piano keys (chromatic; numbers = blacks, letters = whites) */
+  const KEY_MAP = {
+    'q': 0,  '2': 1,  'w': 2,  '3': 3,  'e': 4,
+    'r': 5,  '5': 6,  't': 7,  '6': 8,  'y': 9,
+    '7': 10, 'u': 11, 'i': 12,
+  };
   document.addEventListener('keydown', e => {
     if (e.repeat) return;
     if (!$('screen-game').classList.contains('active')) return;
-    const i = '12345678'.indexOf(e.key);
-    if (i >= 0) { e.preventDefault(); pressKey(i); }
+    const i = KEY_MAP[e.key.toLowerCase()];
+    if (i !== undefined) { e.preventDefault(); pressKey(i); }
   });
   document.addEventListener('keyup', e => {
     if (!$('screen-game').classList.contains('active')) return;
-    const i = '12345678'.indexOf(e.key);
-    if (i >= 0) releaseKey(i);
+    const i = KEY_MAP[e.key.toLowerCase()];
+    if (i !== undefined) releaseKey(i);
   });
 </script>
 
