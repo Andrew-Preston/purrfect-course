@@ -125,7 +125,7 @@
     gap: 1.5rem;
     align-items: baseline;
   }
-  .tip-counter, .day-timer {
+  .tip-counter, .day-timer, .star-counter {
     font-size: 1.7rem;
     font-weight: 700;
     color: #5d4037;
@@ -135,8 +135,20 @@
   .day-timer {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
   }
+  .star-counter {
+    color: #b8860b;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7), 0 2px 3px rgba(184,134,11,0.28);
+  }
   .tip-counter.bump {
     animation: tip-bump 0.5s ease-out;
+  }
+  .star-counter.bump {
+    animation: star-bump 0.5s ease-out;
+  }
+  @keyframes star-bump {
+    0%   { transform: scale(1); color: #b8860b; }
+    35%  { transform: scale(1.35); color: #ffb300; }
+    100% { transform: scale(1); color: #b8860b; }
   }
   .day-timer.urgent {
     color: #c62828;
@@ -824,6 +836,7 @@
     <button id="view-toggle" class="view-toggle-btn" type="button">Course</button>
     <div class="top-row">
       <div id="tip-counter" class="tip-counter">$0</div>
+      <div id="star-counter" class="star-counter">⭐0</div>
       <div id="served-counter" class="served-counter">Cats 0</div>
       <div id="day-timer" class="day-timer">1:00</div>
     </div>
@@ -885,8 +898,9 @@
       <div class="summary-row"><span>Tips today</span><span id="summary-day-tips">$0</span></div>
       <div class="summary-row"><span>Customers served</span><span id="summary-customers">0</span></div>
       <div class="summary-row"><span>Holes played</span><span id="summary-holes">0</span></div>
+      <div class="summary-row"><span>Stars today</span><span id="summary-day-stars">⭐0</span></div>
     </div>
-    <div class="summary-total">Total: <span id="summary-total">$0</span></div>
+    <div class="summary-total">Total: <span id="summary-total">$0</span> · <span id="summary-total-stars">⭐0</span></div>
     <div class="shop-section">
       <div class="shop-title">Upgrade Shop</div>
       <div id="shop-items"></div>
@@ -1089,6 +1103,8 @@
       holesPlayed,
       upgrades: { ...upgrades },
       progLabel,
+      stars,
+      dayStars,
     });
   }
   function broadcastCourseEvent(kind, extra) {
@@ -1143,6 +1159,12 @@
       tips = s.tips;
       updateTipDisplay(bump);
     }
+    if (typeof s.stars === 'number' && s.stars !== stars) {
+      const bump = s.stars > stars;
+      stars = s.stars;
+      updateStarDisplay(bump);
+    }
+    if (typeof s.dayStars === 'number') dayStars = s.dayStars;
     if (typeof s.secondsLeft === 'number' && s.secondsLeft !== secondsLeft) {
       const wasActive = secondsLeft > 0 && dayActive;
       secondsLeft = s.secondsLeft;
@@ -1788,6 +1810,47 @@
   function saveUpgrades() {
     try { localStorage.setItem(UPGRADE_STORAGE_KEY, JSON.stringify(upgrades)); } catch (e) {}
   }
+  const STARS_STORAGE_KEY = 'purrfect-stars-v1';
+  let stars = 0;
+  let dayStars = 0;
+  const STAR_AWARDS = {
+    hole_in_one: 5,
+    albatross: 4,
+    eagle: 3,
+    birdie: 2,
+    par: 1,
+    bogey: 0,
+    double_bogey: 0,
+    triple_bogey: 0,
+  };
+  function loadStars() {
+    try {
+      const raw = localStorage.getItem(STARS_STORAGE_KEY);
+      if (raw) stars = parseInt(raw, 10) || 0;
+    } catch (e) {}
+  }
+  function saveStars() {
+    try { localStorage.setItem(STARS_STORAGE_KEY, String(stars)); } catch (e) {}
+  }
+  function updateStarDisplay(bump) {
+    const el = $('star-counter');
+    if (!el) return;
+    el.textContent = '⭐' + stars;
+    if (bump) {
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+    }
+  }
+  function awardStars(vKind) {
+    const n = STAR_AWARDS[vKind] || 0;
+    if (n <= 0) return 0;
+    stars += n;
+    dayStars += n;
+    saveStars();
+    updateStarDisplay(true);
+    return n;
+  }
   function getDayLength() { return upgrades.extra_time ? 90 : 60; }
   function getSlideDuration() { return upgrades.fast_customers ? 225 : 450; }
   function getSlideInDuration() { return upgrades.fast_customers ? 250 : 500; }
@@ -2397,6 +2460,7 @@
     holesPlayed += 1;
     const verdict = verdictText(strokes, currentHole.par);
     const vKind   = verdictKind(strokes, currentHole.par);
+    if (role !== 'client') awardStars(vKind);
     showToast(verdict);
     broadcastCourseEvent('holein', { verdict, verdictKind: vKind });
     playHoleIn(vKind);
@@ -2538,8 +2602,10 @@
     dayActive = true;
     dayNumber += 1;
     dayTips = 0;
+    dayStars = 0;
     holesPlayed = 0;
     updateTipDisplay(false);
+    updateStarDisplay(false);
     $('day-timer').classList.remove('done', 'urgent');
     $('game-hint').textContent = 'Play the order';
     updateTimerDisplay();
@@ -2589,7 +2655,9 @@
     $('summary-day-tips').textContent = '$' + dayTips;
     $('summary-customers').textContent = customersServed;
     $('summary-holes').textContent = holesPlayed;
+    $('summary-day-stars').textContent = '⭐' + dayStars;
     $('summary-total').textContent = '$' + tips;
+    $('summary-total-stars').textContent = '⭐' + stars;
     $('btn-next-day').textContent = 'Start Day ' + (dayNumber + 1);
     if (role === 'client') {
       $('btn-next-day').style.display = 'none';
@@ -3024,6 +3092,7 @@
     dayNumber = 0;
     tips = 0;
     dayTips = 0;
+    dayStars = 0;
     customersServed = 0;
     holesPlayed = 0;
     strokes = 0;
@@ -3033,6 +3102,7 @@
     progressionStep = 0;
     progLabel = '';
     renderNowPlaying();
+    updateStarDisplay(false);
     hideSummary();
   }
   $('btn-host').addEventListener('click', () => { ensureAudio(); resetGameSession(); startHost(); });
@@ -3076,6 +3146,8 @@
   buildPiano();
   loadCustomCat();
   loadUpgrades();
+  loadStars();
+  updateStarDisplay(false);
   loadGeneratedContent();
   updateTipDisplay(false);
   updateServedCounter();
