@@ -494,6 +494,66 @@
     opacity: 0.85;
     text-shadow: 0 1px 0 rgba(255,255,255,0.7);
   }
+  /* Day-end summary modal */
+  .summary-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(93, 64, 55, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+  .summary-modal.show { display: flex; animation: modal-fade 0.3s ease-out; }
+  @keyframes modal-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .summary-card {
+    background: linear-gradient(180deg, #fffefa 0%, #fff5e1 55%, #f3e0bb 100%);
+    border: 3px dashed #d4a574;
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 22rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 8px 28px rgba(93,64,55,0.5);
+    animation: card-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-align: center;
+  }
+  @keyframes card-pop {
+    from { transform: scale(0.5); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .summary-card h2 {
+    margin-bottom: 0.5rem;
+  }
+  .summary-rows {
+    margin: 1rem 0;
+    text-align: left;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.45rem 0;
+    font-size: 1.05rem;
+    border-bottom: 1px dashed rgba(212, 165, 116, 0.4);
+  }
+  .summary-row span:last-child {
+    font-weight: 700;
+  }
+  .summary-total {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0.8rem 0 1.1rem;
+    color: #2e7d32;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  #summary-wait {
+    margin-top: 0.5rem;
+  }
 
   /* PIANO */
   .piano {
@@ -643,6 +703,20 @@
   <button id="btn-customize-done" type="button">Done</button>
 </div>
 
+<div id="summary-modal" class="summary-modal">
+  <div class="summary-card">
+    <h2 id="summary-title">Day 1 Complete!</h2>
+    <div class="summary-rows">
+      <div class="summary-row"><span>Tips today</span><span id="summary-day-tips">$0</span></div>
+      <div class="summary-row"><span>Customers served</span><span id="summary-customers">0</span></div>
+      <div class="summary-row"><span>Holes played</span><span id="summary-holes">0</span></div>
+    </div>
+    <div class="summary-total">Total: <span id="summary-total">$0</span></div>
+    <button id="btn-next-day" type="button">Start Day 2</button>
+    <p id="summary-wait" class="hint" style="display: none;">Waiting for host...</p>
+  </div>
+</div>
+
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
 <script>
@@ -725,6 +799,9 @@
       holeId: currentHole ? currentHole.id : null,
       customer: currentCustomer,
       servedCount: customersServed,
+      dayNumber,
+      dayTips,
+      holesPlayed,
     });
   }
   function broadcastCourseEvent(kind, extra) {
@@ -827,6 +904,9 @@
       customersServed = s.servedCount;
       updateServedCounter();
     }
+    if (typeof s.dayNumber === 'number') dayNumber = s.dayNumber;
+    if (typeof s.dayTips === 'number')   dayTips   = s.dayTips;
+    if (typeof s.holesPlayed === 'number') holesPlayed = s.holesPlayed;
   }
   function applyRemoteCourseEvent(d) {
     if (role !== 'client') return;
@@ -856,6 +936,8 @@
   function applyRemoteCafeEvent(d) {
     if (role !== 'client') return;
     if (d.kind === 'note-error') flashError();
+    else if (d.kind === 'day-end') showSummary();
+    else if (d.kind === 'day-start') hideSummary();
   }
   function applyRemoteReaction(kind) {
     if (role !== 'client') return;
@@ -1681,6 +1763,7 @@
     stopPhysics();
     ball.vx = 0; ball.vy = 0;
     ball.atRest = true;
+    holesPlayed += 1;
     const verdict = verdictText(strokes, currentHole.par);
     showToast(verdict);
     broadcastCourseEvent('holein', { verdict });
@@ -1801,6 +1884,9 @@
   let secondsLeft = DAY_LENGTH;
   let dayActive = false;
   let dayInterval = null;
+  let dayNumber = 0;
+  let dayTips = 0;
+  let holesPlayed = 0;
 
   function formatTime(s) {
     const m = Math.floor(s / 60);
@@ -1816,11 +1902,14 @@
   function startDay() {
     secondsLeft = DAY_LENGTH;
     dayActive = true;
-    tips = 0;
+    dayNumber += 1;
+    dayTips = 0;
+    holesPlayed = 0;
     updateTipDisplay(false);
     $('day-timer').classList.remove('done', 'urgent');
     $('game-hint').textContent = 'Play the order';
     updateTimerDisplay();
+    hideSummary();
     if (dayInterval) clearInterval(dayInterval);
     if (role !== 'client') {
       customerQueue = [];
@@ -1831,6 +1920,7 @@
       refillQueue();
       serveNextCustomer();
       dayInterval = setInterval(tickDay, 1000);
+      broadcastCafeEvent('day-start');
     }
   }
   function tickDay() {
@@ -1852,13 +1942,35 @@
     });
     pressedIndices.clear();
     playedNotes.clear();
-    $('game-hint').textContent = 'Day Over! Total: $' + tips;
+    $('game-hint').textContent = 'Day Over!';
     $('day-timer').classList.remove('urgent');
     $('day-timer').classList.add('done');
     if (dayInterval) { clearInterval(dayInterval); dayInterval = null; }
+    showSummary();
+    if (role !== 'client') broadcastCafeEvent('day-end');
+  }
+  function showSummary() {
+    $('summary-title').textContent = 'Day ' + dayNumber + ' Complete!';
+    $('summary-day-tips').textContent = '$' + dayTips;
+    $('summary-customers').textContent = customersServed;
+    $('summary-holes').textContent = holesPlayed;
+    $('summary-total').textContent = '$' + tips;
+    $('btn-next-day').textContent = 'Start Day ' + (dayNumber + 1);
+    if (role === 'client') {
+      $('btn-next-day').style.display = 'none';
+      $('summary-wait').style.display = '';
+    } else {
+      $('btn-next-day').style.display = '';
+      $('summary-wait').style.display = 'none';
+    }
+    $('summary-modal').classList.add('show');
+  }
+  function hideSummary() {
+    $('summary-modal').classList.remove('show');
   }
   function onOrderComplete() {
     tips += currentRecipe.tip_value;
+    dayTips += currentRecipe.tip_value;
     updateTipDisplay(true);
     customersServed += 1;
     updateServedCounter();
@@ -2039,7 +2151,18 @@
   function backToMenu() { cleanupPeer(); role = null; show('screen-menu'); }
 
   /* ---------- WIRE UP ---------- */
-  $('btn-host').addEventListener('click', () => { ensureAudio(); startHost(); });
+  function resetGameSession() {
+    dayNumber = 0;
+    tips = 0;
+    dayTips = 0;
+    customersServed = 0;
+    holesPlayed = 0;
+    strokes = 0;
+    customerQueue = [];
+    currentCustomer = null;
+    hideSummary();
+  }
+  $('btn-host').addEventListener('click', () => { ensureAudio(); resetGameSession(); startHost(); });
   $('btn-join').addEventListener('click', () => { ensureAudio(); startJoin(); });
   $('btn-connect').addEventListener('click', tryConnect);
   $('btn-host-back').addEventListener('click', backToMenu);
@@ -2050,7 +2173,12 @@
     ensureAudio();
     cleanupPeer();
     role = null;
+    resetGameSession();
     show('screen-game');
+    startDay();
+  });
+  $('btn-next-day').addEventListener('click', () => {
+    if (role === 'client') return;
     startDay();
   });
   $('btn-dev-customize').addEventListener('click', openCustomize);
