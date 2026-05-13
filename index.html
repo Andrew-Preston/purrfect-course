@@ -188,6 +188,13 @@
     opacity: 0.55;
     margin-bottom: 0.15rem;
   }
+  .ticket-dialogue {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #8b6f5e;
+    margin-bottom: 0.25rem;
+    opacity: 0.9;
+  }
   .ticket-name {
     font-weight: 700;
     font-size: 1.15rem;
@@ -434,6 +441,45 @@
     25% { transform: translateX(-6px) rotate(-2deg); }
     75% { transform: translateX(6px) rotate(2deg); }
   }
+  /* customer card (name tag + cat) */
+  .cat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .cat-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #5d4037;
+    background: linear-gradient(180deg, #fffaee 0%, #ffe6c4 100%);
+    padding: 0.2rem 1rem;
+    border-radius: 1.2rem;
+    border: 2px solid #d4a574;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 2px 0 rgba(93,64,55,0.18),
+      0 3px 6px rgba(93,64,55,0.18);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+  }
+  /* customer arrive / leave */
+  .cat-mount.slide-out .cat-card { animation: cat-slide-out 0.45s ease-in forwards; }
+  .cat-mount.slide-in  .cat-card { animation: cat-slide-in  0.5s ease-out forwards; }
+  @keyframes cat-slide-out {
+    0%   { transform: translateX(0)    rotate(0);  opacity: 1; }
+    100% { transform: translateX(140%) rotate(10deg); opacity: 0; }
+  }
+  @keyframes cat-slide-in {
+    0%   { transform: translateX(-140%) rotate(-10deg); opacity: 0; }
+    100% { transform: translateX(0)     rotate(0);  opacity: 1; }
+  }
+  .served-counter {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #5d4037;
+    opacity: 0.85;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
 
   /* PIANO */
   .piano {
@@ -529,6 +575,7 @@
     <button id="view-toggle" class="view-toggle-btn" type="button">Course</button>
     <div class="top-row">
       <div id="tip-counter" class="tip-counter">$0</div>
+      <div id="served-counter" class="served-counter">Cats 0</div>
       <div id="day-timer" class="day-timer">1:00</div>
     </div>
     <p class="hint" id="game-hint">Play the order</p>
@@ -537,6 +584,7 @@
     <div id="view-chef" class="view view-chef active">
       <div id="ticket" class="ticket">
         <div class="ticket-label">Order</div>
+        <div id="ticket-dialogue" class="ticket-dialogue"></div>
         <div id="ticket-name" class="ticket-name"></div>
         <div id="ticket-notes" class="ticket-notes"></div>
       </div>
@@ -657,7 +705,21 @@
       pressedLabels: [...pressedLabels()],
       recipeId: currentRecipe ? currentRecipe.id : null,
       secondsLeft,
+      ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy, atRest: ball.atRest },
+      catPos: { x: catPos.x, y: catPos.y },
+      strokes,
+      holeId: currentHole ? currentHole.id : null,
+      customer: currentCustomer,
+      servedCount: customersServed,
     });
+  }
+  function broadcastCourseEvent(kind, extra) {
+    if (role !== 'host' || !conn || !conn.open) return;
+    conn.send(Object.assign({ type: 'course-event', kind }, extra || {}));
+  }
+  function broadcastCourseTap(aim) {
+    if (role !== 'client' || !conn || !conn.open) return;
+    conn.send({ type: 'input-event', kind: 'course-tap', aim: aim || null });
   }
   function broadcastInput() {
     if (role !== 'client' || !conn || !conn.open) return;
@@ -719,6 +781,69 @@
         chipEls[idx]?.classList.toggle('played', labels.has(n));
       });
     }
+
+    // Course sync
+    if (s.holeId && (!currentHole || s.holeId !== currentHole.id)) {
+      const h = HOLES.find(x => x.id === s.holeId);
+      if (h) {
+        currentHole = h;
+        if (s.ball)   { ball.x = s.ball.x; ball.y = s.ball.y; ball.vx = s.ball.vx; ball.vy = s.ball.vy; ball.atRest = s.ball.atRest; }
+        if (s.catPos) { catPos.x = s.catPos.x; catPos.y = s.catPos.y; }
+        if (typeof s.strokes === 'number') strokes = s.strokes;
+        renderCourse();
+        return;
+      }
+    }
+    if (s.ball) {
+      ball.x = s.ball.x; ball.y = s.ball.y;
+      ball.vx = s.ball.vx; ball.vy = s.ball.vy;
+      ball.atRest = s.ball.atRest;
+      updateBallDOM();
+    }
+    if (s.catPos) {
+      const moved = Math.abs(catPos.x - s.catPos.x) > 0.001 || Math.abs(catPos.y - s.catPos.y) > 0.001;
+      catPos.x = s.catPos.x; catPos.y = s.catPos.y;
+      if (moved) updateCatGolfDOM();
+    }
+    if (typeof s.strokes === 'number' && s.strokes !== strokes) {
+      strokes = s.strokes;
+      updateScore();
+    }
+
+    // Customer sync
+    if (s.customer !== undefined) {
+      const localId  = currentCustomer ? currentCustomer.id : null;
+      const remoteId = s.customer      ? s.customer.id      : null;
+      if (localId !== remoteId) applyRemoteCustomer(s.customer);
+    }
+    if (typeof s.servedCount === 'number' && s.servedCount !== customersServed) {
+      customersServed = s.servedCount;
+      updateServedCounter();
+    }
+  }
+  function applyRemoteCourseEvent(d) {
+    if (role !== 'client') return;
+    if (d.kind === 'swing-start') {
+      playSwingAnim();
+    } else if (d.kind === 'splash') {
+      showToast('Splash! +1');
+      const c = document.getElementById('cat-golf');
+      if (c) {
+        c.classList.add('pout');
+        setTimeout(() => c.classList.remove('pout'), 500);
+      }
+    } else if (d.kind === 'holein') {
+      showToast(d.verdict || 'Hole in!');
+      const c = document.getElementById('cat-golf');
+      if (c) {
+        c.classList.add('big-celebrate');
+        setTimeout(() => c.classList.remove('big-celebrate'), 1400);
+      }
+    }
+  }
+  function applyRemoteInputEvent(d) {
+    if (role !== 'host') return;
+    if (d.kind === 'course-tap') swingCat(d.aim || null);
   }
   function applyRemoteInput(s) {
     if (role !== 'host') return;
@@ -890,10 +1015,6 @@
     return `<svg viewBox="0 0 200 240" class="cat-svg" xmlns="http://www.w3.org/2000/svg">${buildCatInner(cat)}</svg>`;
   }
 
-  function renderCat(cat) {
-    $('cat-mount').innerHTML = buildCat(cat);
-  }
-
   /* ---------- CUSTOMIZE ---------- */
   const FUR_COLORS = ['#e8a96b', '#a0a0a8', '#f5e0c2', '#3e2723', '#d4b896', '#d97a3c', '#0d0d0d'];
   const EYE_COLORS = ['#1a1a1a', '#4caf50', '#1976d2', '#ffa726'];
@@ -917,7 +1038,7 @@
     if (!cat) return;
     Object.assign(CATS[0], cat);
     saveCustomCat();
-    renderCat(CATS[0]);
+    if (activeView === 'course') renderCourse();
     if ($('screen-customize').classList.contains('active')) refreshCustomize();
   }
 
@@ -957,8 +1078,8 @@
   function updateCat(changes) {
     Object.assign(CATS[0], changes);
     saveCustomCat();
-    renderCat(CATS[0]);
     refreshCustomize();
+    if (activeView === 'course') renderCourse();
     broadcastCat();
   }
   function openCustomize() {
@@ -972,16 +1093,151 @@
   /* ---------- RECIPES ---------- */
   const RECIPES = [
     {
+      id: 'cream_drop',
+      name: 'Cream Drop',
+      notes: ['C', 'E'],
+      rhythm: [0.5, 0.5],
+      difficulty: 1,
+      tip_value: 6,
+      cat_dialogue: 'Just a little nibble!',
+    },
+    {
       id: 'tuna_souffle',
       name: 'Tuna Soufflé',
       notes: ['C', 'E', 'G'],
       rhythm: [0.5, 0.5, 1],
       difficulty: 1,
       tip_value: 10,
-      cat_dialogue: 'Mmm, fishy please!'
+      cat_dialogue: 'Mmm, fishy please!',
+    },
+    {
+      id: 'pawcakes',
+      name: 'Pawcakes',
+      notes: ['D', 'F', 'A'],
+      rhythm: [0.5, 0.5, 0.5],
+      difficulty: 1,
+      tip_value: 10,
+      cat_dialogue: "Stack 'em high!",
+    },
+    {
+      id: 'mouse_mousse',
+      name: 'Mouse Mousse',
+      notes: ['C', 'D', 'F', 'G'],
+      rhythm: [0.5, 0.5, 0.5, 0.5],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Squeaky and soft!',
+    },
+    {
+      id: 'honey_biscuit',
+      name: 'Honey Biscuit',
+      notes: ['D', 'F', 'G', 'B'],
+      rhythm: [0.5, 0.5, 0.5, 0.5],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Drizzle the honey!',
+    },
+    {
+      id: 'catnip_soup',
+      name: 'Catnip Soup',
+      notes: ['C', 'D', 'E', 'G', 'A'],
+      rhythm: [0.5, 0.5, 0.5, 0.5, 0.5],
+      difficulty: 3,
+      tip_value: 22,
+      cat_dialogue: 'Make it dreamy!',
     },
   ];
   function findRecipe(id) { return RECIPES.find(r => r.id === id); }
+
+  /* ---------- CUSTOMERS / CAFE QUEUE ---------- */
+  let customerQueue = [];
+  let currentCustomer = null;
+  let customersServed = 0;
+  let customerSerial = 0;
+
+  const CUSTOMER_NAMES = [
+    'Whiskers','Mittens','Biscuit','Pepper','Luna','Tofu','Mango',
+    'Pickle','Marshmallow','Coco','Sushi','Pumpkin','Olive','Bean',
+    'Noodle','Dumpling','Peaches','Muffin','Cinnamon','Truffle',
+    'Honey','Waffles','Toast','Caramel','Cookie','Patches','Smudge',
+    'Socks','Boots','Hazel','Pebble','Clover','Daisy','Poppy',
+    'Sage','Willow','Pip','Button','Acorn','Peanut','Maple',
+    'Pearl','Misty','Sparrow','Cricket',
+  ];
+  function makeRandomCat() {
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    customerSerial += 1;
+    return {
+      id: 'cust-' + customerSerial,
+      name: pick(CUSTOMER_NAMES),
+      fur_color: pick(FUR_COLORS),
+      eye_color: pick(EYE_COLORS),
+      pattern: pick(Object.keys(CAT_PARTS.patterns)),
+      hat: pick(Object.keys(CAT_PARTS.hats)),
+      accessory: pick(Object.keys(CAT_PARTS.accessories)),
+      favorite_food: RECIPES[0].id,
+      golf_style: 'finesse',
+      personality: 'hungry',
+      order: RECIPES[Math.floor(Math.random() * RECIPES.length)],
+    };
+  }
+  function refillQueue() {
+    while (customerQueue.length < 4) customerQueue.push(makeRandomCat());
+  }
+  function renderCustomerCat() {
+    const m = $('cat-mount');
+    if (!currentCustomer) { m.innerHTML = ''; return; }
+    m.innerHTML = `
+      <div class="cat-card">
+        <div class="cat-name">${currentCustomer.name}</div>
+        ${buildCat(currentCustomer)}
+      </div>
+    `;
+  }
+  function updateServedCounter() {
+    const el = $('served-counter');
+    if (el) el.textContent = 'Cats ' + customersServed;
+  }
+  function serveNextCustomer() {
+    const next = customerQueue.shift() || makeRandomCat();
+    refillQueue();
+    currentCustomer = next;
+    renderCustomerCat();
+    startOrder(next.order);
+    const m = $('cat-mount');
+    m.classList.remove('slide-out', 'slide-in', 'happy', 'sad');
+    void m.offsetWidth;
+    m.classList.add('slide-in');
+    setTimeout(() => m.classList.remove('slide-in'), 500);
+  }
+  function slideOutAndServeNext() {
+    const m = $('cat-mount');
+    m.classList.remove('happy', 'sad');
+    m.classList.add('slide-out');
+    setTimeout(() => {
+      m.classList.remove('slide-out');
+      serveNextCustomer();
+    }, 450);
+  }
+  function applyRemoteCustomer(nextCustomer) {
+    const m = $('cat-mount');
+    m.classList.remove('happy', 'sad', 'slide-in', 'slide-out');
+    if (currentCustomer) {
+      m.classList.add('slide-out');
+      setTimeout(() => {
+        m.classList.remove('slide-out');
+        currentCustomer = nextCustomer;
+        renderCustomerCat();
+        m.classList.add('slide-in');
+        setTimeout(() => m.classList.remove('slide-in'), 500);
+      }, 450);
+    } else {
+      currentCustomer = nextCustomer;
+      renderCustomerCat();
+      m.classList.add('slide-in');
+      setTimeout(() => m.classList.remove('slide-in'), 500);
+    }
+  }
 
   /* ---------- COURSE / HOLES ---------- */
   /* tile codes: 0 grass, 1 sand, 2 water, 3 wall, 4 tee, 5 hole */
@@ -1007,6 +1263,72 @@
       hazards: [],
       tee_position: [2, 2],
       hole_position: [5, 10],
+    },
+    {
+      id: 'hole-2',
+      name: 'Tabby Turn',
+      par: 4,
+      layout: [
+        [3,3,3,3,3,3,3,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,4,0,0,0,0,3],
+        [3,0,0,0,3,3,0,3],
+        [3,0,0,0,3,3,0,3],
+        [3,2,2,0,3,3,0,3],
+        [3,2,2,0,0,0,0,3],
+        [3,2,0,0,0,1,1,3],
+        [3,0,0,0,0,1,1,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,0,0,0,5,0,3],
+        [3,3,3,3,3,3,3,3],
+      ],
+      hazards: [],
+      tee_position: [2, 2],
+      hole_position: [5, 10],
+    },
+    {
+      id: 'hole-3',
+      name: 'Mittens Marsh',
+      par: 4,
+      layout: [
+        [3,3,3,3,3,3,3,3],
+        [3,0,4,0,0,0,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,0,0,2,2,0,3],
+        [3,0,0,2,2,2,0,3],
+        [3,0,2,2,2,2,0,3],
+        [3,0,2,2,2,2,0,3],
+        [3,0,2,2,2,0,0,3],
+        [3,0,0,2,0,0,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,1,1,5,1,0,3],
+        [3,3,3,3,3,3,3,3],
+      ],
+      hazards: [],
+      tee_position: [2, 1],
+      hole_position: [4, 10],
+    },
+    {
+      id: 'hole-4',
+      name: 'Fluffy Dunes',
+      par: 4,
+      layout: [
+        [3,3,3,3,3,3,3,3],
+        [3,0,0,4,0,0,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,1,1,0,1,1,0,3],
+        [3,1,1,0,1,1,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,0,1,1,1,1,0,3],
+        [3,0,1,1,1,1,0,3],
+        [3,0,0,0,0,0,0,3],
+        [3,1,1,0,0,1,1,3],
+        [3,0,0,0,5,0,0,3],
+        [3,3,3,3,3,3,3,3],
+      ],
+      hazards: [],
+      tee_position: [3, 1],
+      hole_position: [4, 10],
     },
   ];
 
@@ -1172,28 +1494,43 @@
   }
 
   let swinging = false;
-  function swingCat() {
+  let pendingAim = null;
+  function swingCat(aim) {
     if (swinging) return;
     if (!ball.atRest) return;
-    if (role === 'client') return; // Step 4 will route client swings to host
+    if (role === 'client') return; // client taps are routed via input-event
+    if (aim) {
+      const dx = aim.x - ball.x, dy = aim.y - ball.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 0.3) return; // ignore taps right on the cat
+    }
     const c = document.getElementById('cat-golf');
     if (!c) return;
     swinging = true;
+    pendingAim = aim || null;
+    broadcastCourseEvent('swing-start');
     c.classList.add('windup');
     setTimeout(() => {
       c.classList.remove('windup');
       c.classList.add('swing');
       setTimeout(() => {
         c.classList.remove('swing');
-        launchBall();
+        launchBall(pendingAim);
+        pendingAim = null;
       }, 150);
     }, 350);
   }
 
-  function launchBall() {
+  function launchBall(aim) {
     const cat = CATS[0];
-    const [hx, hy] = currentHole.hole_position;
-    const targetX = hx + 0.5, targetY = hy + 0.5;
+    let targetX, targetY;
+    if (aim) {
+      targetX = aim.x;
+      targetY = aim.y;
+    } else {
+      const [hx, hy] = currentHole.hole_position;
+      targetX = hx + 0.5;
+      targetY = hy + 0.5;
+    }
     const dx = targetX - ball.x, dy = targetY - ball.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 0.001) { swinging = false; return; }
@@ -1289,12 +1626,44 @@
     if (b) { b.setAttribute('cx', ball.x * CELL); b.setAttribute('cy', ball.y * CELL); }
     if (s) { s.setAttribute('cx', ball.x * CELL + 1); s.setAttribute('cy', ball.y * CELL + CELL * 0.2); }
   }
+  function clientToGrid(clientX, clientY) {
+    const svg = document.querySelector('.course-svg');
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const cols = currentHole.layout[0].length;
+    const rows = currentHole.layout.length;
+    return {
+      x: ((clientX - rect.left) / rect.width)  * cols,
+      y: ((clientY - rect.top)  / rect.height) * rows,
+    };
+  }
+  function updateCatGolfDOM() {
+    const CELL = 40;
+    const cg = document.getElementById('cat-golf');
+    if (!cg) return;
+    const catW = CELL * 2, catH = CELL * 1.9;
+    cg.setAttribute('x', catPos.x * CELL - catW / 2);
+    cg.setAttribute('y', catPos.y * CELL - catH * 0.6);
+  }
+  function playSwingAnim() {
+    const c = document.getElementById('cat-golf');
+    if (!c) return;
+    c.classList.remove('windup', 'swing');
+    c.classList.add('windup');
+    setTimeout(() => {
+      c.classList.remove('windup');
+      c.classList.add('swing');
+      setTimeout(() => c.classList.remove('swing'), 150);
+    }, 350);
+  }
   function ballToWater() {
     stopPhysics();
     ball.vx = 0; ball.vy = 0;
     strokes += 1; // penalty stroke
     updateScore();
     showToast('Splash! +1');
+    broadcastCourseEvent('splash');
     const c = document.getElementById('cat-golf');
     if (c) c.classList.add('pout');
     setTimeout(() => {
@@ -1308,7 +1677,9 @@
     stopPhysics();
     ball.vx = 0; ball.vy = 0;
     ball.atRest = true;
-    showToast(verdictText(strokes, currentHole.par));
+    const verdict = verdictText(strokes, currentHole.par);
+    showToast(verdict);
+    broadcastCourseEvent('holein', { verdict });
     const c = document.getElementById('cat-golf');
     if (c) c.classList.add('big-celebrate');
     setTimeout(() => {
@@ -1342,6 +1713,8 @@
     if (!recipe) { t.style.display = 'none'; return; }
     t.style.display = '';
     $('ticket-name').textContent = recipe.name;
+    const dlg = $('ticket-dialogue');
+    if (dlg) dlg.textContent = recipe.cat_dialogue ? '"' + recipe.cat_dialogue + '"' : '';
     const notes = $('ticket-notes');
     notes.innerHTML = '';
     chipEls = [];
@@ -1437,8 +1810,14 @@
     updateTimerDisplay();
     if (dayInterval) clearInterval(dayInterval);
     if (role !== 'client') {
+      customerQueue = [];
+      currentCustomer = null;
+      customersServed = 0;
+      customerSerial = 0;
+      updateServedCounter();
+      refillQueue();
+      serveNextCustomer();
       dayInterval = setInterval(tickDay, 1000);
-      startOrder(RECIPES[0]);
     }
   }
   function tickDay() {
@@ -1469,14 +1848,17 @@
   function onOrderComplete() {
     tips += currentRecipe.tip_value;
     updateTipDisplay(true);
+    customersServed += 1;
+    updateServedCounter();
     catReact('happy', 1500);
     $('game-hint').textContent = 'Yum! +$' + currentRecipe.tip_value;
-    const finished = currentRecipe;
     currentRecipe = null;
+    renderTicket(null);
     setTimeout(() => {
+      if (!dayActive) return;
       $('game-hint').textContent = 'Play the order';
-      startOrder(finished);
-    }, 1700);
+      slideOutAndServeNext();
+    }, 1500);
   }
 
   /* ---------- PIANO ---------- */
@@ -1560,6 +1942,8 @@
       else if (d.type === 'input') applyRemoteInput(d);
       else if (d.type === 'react') applyRemoteReaction(d.kind);
       else if (d.type === 'cat') applyRemoteCat(d.cat);
+      else if (d.type === 'course-event') applyRemoteCourseEvent(d);
+      else if (d.type === 'input-event') applyRemoteInputEvent(d);
     });
     setTimeout(() => {
       show('screen-game');
@@ -1640,7 +2024,13 @@
   $('cat-mount').addEventListener('click', openCustomize);
   $('btn-customize-done').addEventListener('click', closeCustomize);
   $('view-toggle').addEventListener('click', () => setView(activeView === 'chef' ? 'course' : 'chef'));
-  $('view-course').addEventListener('click', swingCat);
+  $('view-course').addEventListener('click', (e) => {
+    if (!e.target.closest('.course-svg')) return; // ignore taps on score badge / toast
+    const aim = clientToGrid(e.clientX, e.clientY);
+    if (!aim) return;
+    if (role === 'client') broadcastCourseTap(aim);
+    else swingCat(aim);
+  });
   $('join-input').addEventListener('input', e => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
   });
@@ -1648,9 +2038,8 @@
 
   buildPiano();
   loadCustomCat();
-  renderCat(CATS[0]);
-  startOrder(RECIPES[0]);
   updateTipDisplay(false);
+  updateServedCounter();
   setBallToTee(currentHole);
   setCatToTee(currentHole);
   renderCourse();
