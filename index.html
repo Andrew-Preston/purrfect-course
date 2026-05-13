@@ -232,6 +232,20 @@
       0 2px 4px rgba(93, 64, 55, 0.28),
       0 0 10px rgba(168,230,163,0.6);
   }
+  .note-chip.error {
+    background: radial-gradient(circle at 30% 25%, #ffd0d0 0%, #ff7a7a 55%, #c62828 100%);
+    color: #fff;
+    animation: chip-shake 0.4s ease-in-out;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 2px 4px rgba(93, 64, 55, 0.3),
+      0 0 12px rgba(244,67,54,0.55);
+  }
+  @keyframes chip-shake {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-4px) rotate(-3deg); }
+    75%      { transform: translateX(4px)  rotate(3deg); }
+  }
   /* CAT */
   .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
   .cat-svg { width: min(72vw, 320px); height: auto; display: block; overflow: visible; }
@@ -490,6 +504,7 @@
     padding: 0.5rem 4px calc(0.5rem + env(safe-area-inset-bottom)) 4px;
     gap: 4px;
     flex-shrink: 0;
+    touch-action: none;
   }
   .key {
     flex: 1 1 0;
@@ -695,14 +710,13 @@
   /* ---------- NETWORK ROLE + SYNC ---------- */
   let role = null;            // 'host' | 'client' | null
   let stateInterval = null;
-  let remotePressedLabels = new Set();
 
   function broadcastState() {
     if (role !== 'host' || !conn || !conn.open) return;
     conn.send({
       type: 'state',
       tips,
-      pressedLabels: [...pressedLabels()],
+      playedNotes: [...playedNotes],
       recipeId: currentRecipe ? currentRecipe.id : null,
       secondsLeft,
       ball: { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy, atRest: ball.atRest },
@@ -721,12 +735,13 @@
     if (role !== 'client' || !conn || !conn.open) return;
     conn.send({ type: 'input-event', kind: 'course-tap', aim: aim || null });
   }
-  function broadcastInput() {
+  function broadcastCafeEvent(kind, extra) {
+    if (role !== 'host' || !conn || !conn.open) return;
+    conn.send(Object.assign({ type: 'cafe-event', kind }, extra || {}));
+  }
+  function broadcastNotePress(label) {
     if (role !== 'client' || !conn || !conn.open) return;
-    conn.send({
-      type: 'input',
-      pressedLabels: [...pressedIndices].map(i => NOTES[i].label),
-    });
+    conn.send({ type: 'input-event', kind: 'note-press', label });
   }
   function broadcastReaction(kind) {
     if (role !== 'host' || !conn || !conn.open) return;
@@ -736,17 +751,11 @@
     stopNetworkTick();
     stateInterval = setInterval(() => {
       if (role === 'host') broadcastState();
-      else if (role === 'client') broadcastInput();
     }, 100);
   }
   function stopNetworkTick() {
     if (stateInterval) clearInterval(stateInterval);
     stateInterval = null;
-  }
-  function setEqual(a, b) {
-    if (a.size !== b.size) return false;
-    for (const x of a) if (!b.has(x)) return false;
-    return true;
   }
   function applyRemoteState(s) {
     if (role !== 'client') return;
@@ -775,11 +784,9 @@
         $('game-hint').textContent = 'Day Over! Total: $' + tips;
       }
     }
-    if (currentRecipe) {
-      const labels = new Set(s.pressedLabels || []);
-      currentRecipe.notes.forEach((n, idx) => {
-        chipEls[idx]?.classList.toggle('played', labels.has(n));
-      });
+    if (currentRecipe && Array.isArray(s.playedNotes)) {
+      playedNotes = new Set(s.playedNotes);
+      renderPlayedChips();
     }
 
     // Course sync
@@ -844,14 +851,11 @@
   function applyRemoteInputEvent(d) {
     if (role !== 'host') return;
     if (d.kind === 'course-tap') swingCat(d.aim || null);
+    else if (d.kind === 'note-press') onNotePlayed(d.label);
   }
-  function applyRemoteInput(s) {
-    if (role !== 'host') return;
-    const newLabels = new Set(s.pressedLabels || []);
-    if (setEqual(newLabels, remotePressedLabels)) return;
-    remotePressedLabels = newLabels;
-    updatePlayedChips();
-    checkChord();
+  function applyRemoteCafeEvent(d) {
+    if (role !== 'client') return;
+    if (d.kind === 'note-error') flashError();
   }
   function applyRemoteReaction(kind) {
     if (role !== 'client') return;
@@ -1730,6 +1734,7 @@
   /* ---------- COOKING ---------- */
   let currentRecipe = null;
   let tips = 0;
+  let playedNotes = new Set();
 
   function startOrder(recipe) {
     pressedIndices.forEach(i => {
@@ -1737,8 +1742,10 @@
       keyEls[i].classList.remove('pressed');
     });
     pressedIndices.clear();
+    playedNotes.clear();
     currentRecipe = recipe;
     renderTicket(recipe);
+    renderPlayedChips();
   }
   function updateTipDisplay(bump) {
     const el = $('tip-counter');
@@ -1757,28 +1764,35 @@
     setTimeout(() => m.classList.remove(klass), ms);
     broadcastReaction(klass);
   }
-  function pressedLabels() {
-    const set = new Set([...pressedIndices].map(i => NOTES[i].label));
-    remotePressedLabels.forEach(l => set.add(l));
-    return set;
-  }
-  function updatePlayedChips() {
+  function renderPlayedChips() {
     if (!currentRecipe) return;
-    const labels = pressedLabels();
     currentRecipe.notes.forEach((n, idx) => {
-      chipEls[idx]?.classList.toggle('played', labels.has(n));
+      chipEls[idx]?.classList.toggle('played', playedNotes.has(n));
     });
   }
-  let chordWasMatched = false;
-  function checkChord() {
+  function flashError() {
+    chipEls.forEach(c => {
+      c.classList.remove('played');
+      c.classList.add('error');
+      setTimeout(() => c.classList.remove('error'), 400);
+    });
+  }
+  function onNotePlayed(label) {
     if (!currentRecipe || !dayActive) return;
-    const labels = pressedLabels();
-    const matched = currentRecipe.notes.every(n => labels.has(n));
-    if (matched && !chordWasMatched) {
-      chordWasMatched = true;
-      onOrderComplete();
-    } else if (!matched) {
-      chordWasMatched = false;
+    if (currentRecipe.notes.includes(label)) {
+      if (!playedNotes.has(label)) {
+        playedNotes.add(label);
+        renderPlayedChips();
+        if (currentRecipe.notes.every(n => playedNotes.has(n))) {
+          onOrderComplete();
+        }
+      }
+    } else {
+      playedNotes.clear();
+      renderPlayedChips();
+      flashError();
+      catReact('sad', 400);
+      broadcastCafeEvent('note-error');
     }
   }
 
@@ -1803,7 +1817,6 @@
     secondsLeft = DAY_LENGTH;
     dayActive = true;
     tips = 0;
-    chordWasMatched = false;
     updateTipDisplay(false);
     $('day-timer').classList.remove('done', 'urgent');
     $('game-hint').textContent = 'Play the order';
@@ -1833,13 +1846,12 @@
     dayActive = false;
     currentRecipe = null;
     renderTicket(null);
-    chordWasMatched = false;
     pressedIndices.forEach(i => {
       keyEls[i].dataset.down = '0';
       keyEls[i].classList.remove('pressed');
     });
     pressedIndices.clear();
-    remotePressedLabels.clear();
+    playedNotes.clear();
     $('game-hint').textContent = 'Day Over! Total: $' + tips;
     $('day-timer').classList.remove('urgent');
     $('day-timer').classList.add('done');
@@ -1881,10 +1893,9 @@
     k.classList.add('pressed');
     playNote(NOTES[i].note);
     pressedIndices.add(i);
-    if (role !== 'client') {
-      updatePlayedChips();
-      checkChord();
-    }
+    const label = NOTES[i].label;
+    if (role === 'client') broadcastNotePress(label);
+    else onNotePlayed(label);
   }
   function releaseKey(i) {
     const k = keyEls[i];
@@ -1892,10 +1903,14 @@
     k.dataset.down = '0';
     k.classList.remove('pressed');
     pressedIndices.delete(i);
-    if (role !== 'client') {
-      updatePlayedChips();
-      checkChord();
-    }
+  }
+  function keyIndexAt(clientX, clientY) {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el) return -1;
+    const key = el.closest('.key');
+    if (!key) return -1;
+    const idx = keyEls.indexOf(key);
+    return idx;
   }
   function buildPiano() {
     const piano = $('piano');
@@ -1903,15 +1918,35 @@
       const k = document.createElement('div');
       k.className = 'key';
       k.textContent = label;
-      const press = () => pressKey(i);
-      const release = () => releaseKey(i);
-      k.addEventListener('pointerdown', press);
-      k.addEventListener('pointerup', release);
-      k.addEventListener('pointercancel', release);
-      k.addEventListener('pointerleave', release);
       keyEls.push(k);
       piano.appendChild(k);
     });
+    const active = new Map(); // pointerId -> key index
+    piano.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const idx = keyIndexAt(e.clientX, e.clientY);
+      if (idx < 0) return;
+      pressKey(idx);
+      active.set(e.pointerId, idx);
+      try { piano.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    piano.addEventListener('pointermove', e => {
+      if (!active.has(e.pointerId)) return;
+      const idx = keyIndexAt(e.clientX, e.clientY);
+      const prev = active.get(e.pointerId);
+      if (idx === prev) return;
+      if (prev >= 0) releaseKey(prev);
+      if (idx >= 0) pressKey(idx);
+      active.set(e.pointerId, idx);
+    });
+    function endPointer(e) {
+      if (!active.has(e.pointerId)) return;
+      const prev = active.get(e.pointerId);
+      if (prev >= 0) releaseKey(prev);
+      active.delete(e.pointerId);
+    }
+    piano.addEventListener('pointerup', endPointer);
+    piano.addEventListener('pointercancel', endPointer);
   }
 
   /* ---------- HANDSHAKE ---------- */
@@ -1922,7 +1957,6 @@
   }
   function cleanupPeer() {
     stopNetworkTick();
-    remotePressedLabels.clear();
     if (dayInterval) { clearInterval(dayInterval); dayInterval = null; }
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
@@ -1933,16 +1967,18 @@
     c.on('close', () => {
       $('game-hint').textContent = 'Friend disconnected';
       stopNetworkTick();
-      remotePressedLabels.clear();
-      if (role !== 'client') updatePlayedChips();
+      if (role === 'client') {
+        playedNotes.clear();
+        renderPlayedChips();
+      }
     });
     c.on('data', d => {
       if (!d || typeof d !== 'object') return;
       if (d.type === 'state') applyRemoteState(d);
-      else if (d.type === 'input') applyRemoteInput(d);
       else if (d.type === 'react') applyRemoteReaction(d.kind);
       else if (d.type === 'cat') applyRemoteCat(d.cat);
       else if (d.type === 'course-event') applyRemoteCourseEvent(d);
+      else if (d.type === 'cafe-event') applyRemoteCafeEvent(d);
       else if (d.type === 'input-event') applyRemoteInputEvent(d);
     });
     setTimeout(() => {
