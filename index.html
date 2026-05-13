@@ -760,6 +760,9 @@
   let peer = null;
   let conn = null;
   let synth = null;
+  let hitSynth = null;
+  let holeSynth = null;
+  let meowSynth = null;
 
   /* ---------- SCREENS ---------- */
   function show(id) {
@@ -774,11 +777,59 @@
       await Tone.start();
       synth = new Tone.PolySynth(Tone.Synth).toDestination();
       synth.volume.value = -8;
+
+      hitSynth = new Tone.MembraneSynth({
+        pitchDecay: 0.012,
+        octaves: 4,
+        envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
+      }).toDestination();
+      hitSynth.volume.value = -8;
+
+      holeSynth = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.4 },
+      }).toDestination();
+      holeSynth.volume.value = -6;
+
+      meowSynth = new Tone.MonoSynth({
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.03, decay: 0.08, sustain: 0.6, release: 0.18 },
+        filter: { type: 'lowpass', Q: 1.5, frequency: 1800 },
+        filterEnvelope: { attack: 0.02, decay: 0.1, sustain: 0.5, release: 0.2, baseFrequency: 600, octaves: 2.5 },
+      }).toDestination();
+      meowSynth.portamento = 0.1;
+      meowSynth.volume.value = -10;
     } catch (e) {}
   }
   async function playNote(note) {
     await ensureAudio();
     if (synth) synth.triggerAttackRelease(note, '8n');
+  }
+  function playBallHit() {
+    if (!hitSynth) return;
+    try { hitSynth.triggerAttackRelease('C2', '16n'); } catch (e) {}
+  }
+  function playHoleIn() {
+    if (!holeSynth) return;
+    try {
+      const t = Tone.now();
+      holeSynth.triggerAttackRelease('C5', '16n', t);
+      holeSynth.triggerAttackRelease('E5', '16n', t + 0.1);
+      holeSynth.triggerAttackRelease('G5', '16n', t + 0.2);
+      holeSynth.triggerAttackRelease('C6', '8n',  t + 0.3);
+    } catch (e) {}
+  }
+  function playMeow() {
+    if (!meowSynth) return;
+    try {
+      const starts = ['D5', 'E5', 'F5', 'G5', 'A5'];
+      const ends   = ['A4', 'B4', 'C5', 'D5'];
+      const start = starts[Math.floor(Math.random() * starts.length)];
+      const end   = ends[Math.floor(Math.random() * ends.length)];
+      meowSynth.triggerAttack(start);
+      setTimeout(() => { try { meowSynth.setNote(end); } catch (e) {} }, 80);
+      setTimeout(() => { try { meowSynth.triggerRelease(); } catch (e) {} }, 280);
+    } catch (e) {}
   }
 
   /* ---------- NETWORK ROLE + SYNC ---------- */
@@ -912,6 +963,8 @@
     if (role !== 'client') return;
     if (d.kind === 'swing-start') {
       playSwingAnim();
+    } else if (d.kind === 'ball-hit') {
+      playBallHit();
     } else if (d.kind === 'splash') {
       showToast('Splash! +1');
       const c = document.getElementById('cat-golf');
@@ -926,6 +979,7 @@
         c.classList.add('big-celebrate');
         setTimeout(() => c.classList.remove('big-celebrate'), 1400);
       }
+      playHoleIn();
     }
   }
   function applyRemoteInputEvent(d) {
@@ -1636,6 +1690,8 @@
     ball.atRest = false;
     strokes += 1;
     updateScore();
+    playBallHit();
+    broadcastCourseEvent('ball-hit');
     startPhysics();
   }
 
@@ -1767,6 +1823,7 @@
     const verdict = verdictText(strokes, currentHole.par);
     showToast(verdict);
     broadcastCourseEvent('holein', { verdict });
+    playHoleIn();
     const c = document.getElementById('cat-golf');
     if (c) c.classList.add('big-celebrate');
     setTimeout(() => {
@@ -1845,6 +1902,7 @@
     void m.offsetWidth;
     m.classList.add(klass);
     setTimeout(() => m.classList.remove(klass), ms);
+    if (klass === 'happy') playMeow();
     broadcastReaction(klass);
   }
   function renderPlayedChips() {
