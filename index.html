@@ -612,6 +612,57 @@
     color: #5d4037;
   }
   .shop-item.owned .shop-item-name { opacity: 0.7; }
+  /* Admin screen */
+  #screen-admin {
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding: 1rem 1.25rem 2rem;
+    gap: 0.8rem;
+  }
+  .admin-section { width: 100%; max-width: 22rem; }
+  .admin-section input {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    border-radius: 0.6rem;
+    border: 2px dashed #d4a574;
+    background: #fff5e1;
+    color: #5d4037;
+    outline: none;
+  }
+  .admin-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+  .admin-buttons button { font-size: 1.1rem; padding: 0.7rem 1rem; }
+  .admin-preview {
+    width: 100%;
+    max-width: 22rem;
+    background: linear-gradient(180deg, #fffefa 0%, #fff5e1 100%);
+    border: 2px dashed #d4a574;
+    border-radius: 0.85rem;
+    padding: 0.75rem;
+    box-shadow: 0 4px 12px rgba(93,64,55,0.2);
+  }
+  #admin-preview-visual {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+  #admin-preview-visual svg.cat-svg { width: 140px; }
+  #admin-preview-json {
+    background: #fff;
+    border: 1px solid rgba(212, 165, 116, 0.4);
+    padding: 0.5rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.68rem;
+    overflow-x: auto;
+    max-height: 28vh;
+    text-align: left;
+    color: #5d4037;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .admin-accept-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .admin-accept-row button { flex: 1; font-size: 1rem; padding: 0.6rem; }
 
   /* PIANO */
   .piano {
@@ -662,12 +713,36 @@
 <body>
 
 <div id="screen-menu" class="screen active">
-  <h1>Purrfect Course</h1>
+  <h1 id="title">Purrfect Course</h1>
   <div class="menu">
     <button id="btn-host" type="button">Host Game</button>
     <button id="btn-join" class="join" type="button">Join Game</button>
     <button id="btn-dev" class="dev" type="button">Dev</button>
   </div>
+</div>
+
+<div id="screen-admin" class="screen">
+  <h2>AI Admin</h2>
+  <div class="admin-section">
+    <div class="section-label">Anthropic API Key</div>
+    <input id="api-key-input" type="password" placeholder="sk-ant-..." autocomplete="off">
+    <p class="hint">Stored only in this browser. Not committed.</p>
+  </div>
+  <div class="admin-section admin-buttons">
+    <button id="btn-gen-recipe" type="button">Generate Recipe</button>
+    <button id="btn-gen-hole" class="join" type="button">Generate Hole</button>
+    <button id="btn-gen-hat" class="dev" type="button">Generate Cat Hat</button>
+  </div>
+  <p id="admin-status" class="status"></p>
+  <div id="admin-preview" class="admin-preview" style="display:none;">
+    <div id="admin-preview-visual"></div>
+    <pre id="admin-preview-json"></pre>
+    <div class="admin-accept-row">
+      <button id="btn-admin-accept" class="join" type="button">Accept</button>
+      <button id="btn-admin-discard" class="back" type="button">Discard</button>
+    </div>
+  </div>
+  <button id="btn-admin-back" class="back" type="button">Back</button>
 </div>
 
 <div id="screen-dev" class="screen">
@@ -2457,6 +2532,229 @@
   }
   function backToMenu() { cleanupPeer(); role = null; show('screen-menu'); }
 
+  /* ---------- ADMIN / AI CONTENT GEN ---------- */
+  const API_KEY_STORAGE = 'purrfect-api-key-v1';
+  const GEN_RECIPES_KEY = 'purrfect-gen-recipes-v1';
+  const GEN_HOLES_KEY   = 'purrfect-gen-holes-v1';
+  const GEN_HATS_KEY    = 'purrfect-gen-hats-v1';
+  let pendingPreview = null;
+
+  function loadApiKey() {
+    try { return localStorage.getItem(API_KEY_STORAGE) || ''; } catch (e) { return ''; }
+  }
+  function saveApiKey(key) {
+    try { localStorage.setItem(API_KEY_STORAGE, key); } catch (e) {}
+  }
+  function loadGeneratedContent() {
+    try {
+      const recipes = JSON.parse(localStorage.getItem(GEN_RECIPES_KEY) || '[]');
+      recipes.forEach(r => { if (!RECIPES.find(x => x.id === r.id)) RECIPES.push(r); });
+      const holes = JSON.parse(localStorage.getItem(GEN_HOLES_KEY) || '[]');
+      holes.forEach(h => { if (!HOLES.find(x => x.id === h.id)) HOLES.push(h); });
+      const hats = JSON.parse(localStorage.getItem(GEN_HATS_KEY) || '{}');
+      Object.entries(hats).forEach(([key, svg]) => { CAT_PARTS.hats[key] = () => svg; });
+    } catch (e) {}
+  }
+  function persistGen(storageKey, valueOrEntry) {
+    try {
+      if (storageKey === GEN_HATS_KEY) {
+        const obj = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        Object.assign(obj, valueOrEntry);
+        localStorage.setItem(storageKey, JSON.stringify(obj));
+      } else {
+        const arr = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        arr.push(valueOrEntry);
+        localStorage.setItem(storageKey, JSON.stringify(arr));
+      }
+    } catch (e) {}
+  }
+
+  async function callClaudeAPI(prompt) {
+    const key = $('api-key-input').value.trim();
+    if (!key) throw new Error('Need API key');
+    saveApiKey(key);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2048,
+        messages: [
+          { role: 'user', content: prompt },
+          { role: 'assistant', content: '{' },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error('API ' + resp.status + ': ' + errText.slice(0, 200));
+    }
+    const data = await resp.json();
+    const text = data.content && data.content[0] && data.content[0].text;
+    if (!text) throw new Error('Empty response');
+    return '{' + text; // prepend the prefilled brace
+  }
+
+  const RECIPE_PROMPT = 'Generate a new recipe for a cute mobile cafe game called Purrfect Course.\n\n' +
+    'Schema:\n' +
+    '{\n' +
+    '  "id": string (snake_case unique, NOT one of: cream_drop, tuna_souffle, pawcakes, mouse_mousse, honey_biscuit, catnip_soup, espresso_shot),\n' +
+    '  "name": string (cute food name, cat theme if possible),\n' +
+    '  "notes": string[] (subset of ["C","D","E","F","G","A","B"], between 2 and 5 distinct notes),\n' +
+    '  "rhythm": number[] (one per note, values from [0.25, 0.5, 1]),\n' +
+    '  "difficulty": number (1-3),\n' +
+    '  "tip_value": number (6-30, scales with note count and difficulty),\n' +
+    '  "cat_dialogue": string (short cute line a cat might say, under 40 chars)\n' +
+    '}\n\n' +
+    'Return ONLY the JSON object. No markdown fences. No commentary.';
+
+  const HOLE_PROMPT = 'Generate a new mini-golf hole for a cute mobile game.\n\n' +
+    'Schema:\n' +
+    '{\n' +
+    '  "id": string (snake_case unique),\n' +
+    '  "name": string (cute cat-themed pun like "Tabby Turn"),\n' +
+    '  "par": number (3 or 4),\n' +
+    '  "layout": number[][] (exactly 12 rows of exactly 8 columns),\n' +
+    '  "hazards": [],\n' +
+    '  "tee_position": [col, row],\n' +
+    '  "hole_position": [col, row]\n' +
+    '}\n\n' +
+    'Tile codes in layout:\n' +
+    '  0 = grass, 1 = sand (slows ball), 2 = water (loses ball),\n' +
+    '  3 = wall, 4 = tee, 5 = hole\n\n' +
+    'Rules:\n' +
+    '- Entire perimeter (row 0, row 11, col 0, col 7) MUST be walls (3).\n' +
+    '- tee_position [col, row] must have value 4 at layout[row][col].\n' +
+    '- hole_position [col, row] must have value 5 at layout[row][col].\n' +
+    '- Layout MUST be exactly 12 rows of 8 columns.\n' +
+    '- Hole should be reachable from tee through grass / sand (no fully-walled-off paths).\n\n' +
+    'Return ONLY the JSON object. No markdown fences. No commentary.';
+
+  const HAT_PROMPT = 'Generate a cute cat hat as inline SVG.\n\n' +
+    'The hat will be placed on a cat head centered around (100, 80) in a 200x240 SVG viewBox. The hat should sit on top of the head, mostly between y=10 and y=60. Keep it cute and simple.\n\n' +
+    'Schema:\n' +
+    '{\n' +
+    '  "key": string (snake_case unique key, NOT one of: none, chef, visor, crown),\n' +
+    '  "name": string (display name like "Wizard Hat"),\n' +
+    '  "svg": string (a single <g>...</g> element containing only path, ellipse, rect, circle, polygon, line. No script, no foreignObject, no external refs)\n' +
+    '}\n\n' +
+    'Use cute warm colors. Use stroke and fill attributes inline. Keep total under 600 chars.\n\n' +
+    'Return ONLY the JSON object. No markdown fences. No commentary.';
+
+  function validateRecipe(r) {
+    const valid = ['C','D','E','F','G','A','B'];
+    if (typeof r.id !== 'string' || !/^[a-z][a-z0-9_]*$/.test(r.id)) throw new Error('id must be snake_case');
+    if (typeof r.name !== 'string' || !r.name) throw new Error('name required');
+    if (!Array.isArray(r.notes) || r.notes.length < 2 || r.notes.length > 5) throw new Error('notes must have 2-5 entries');
+    if (!r.notes.every(n => valid.includes(n))) throw new Error('notes must be C-B');
+    if (!Array.isArray(r.rhythm) || r.rhythm.length !== r.notes.length) throw new Error('rhythm length must match notes');
+    if (typeof r.difficulty !== 'number') throw new Error('difficulty must be number');
+    if (typeof r.tip_value !== 'number') throw new Error('tip_value must be number');
+    if (typeof r.cat_dialogue !== 'string') throw new Error('cat_dialogue required');
+    return r;
+  }
+  function validateHole(h) {
+    if (typeof h.id !== 'string' || !/^[a-z][a-z0-9_-]*$/.test(h.id)) throw new Error('id must be snake_case or kebab');
+    if (typeof h.name !== 'string' || !h.name) throw new Error('name required');
+    if (h.par !== 3 && h.par !== 4) throw new Error('par must be 3 or 4');
+    if (!Array.isArray(h.layout) || h.layout.length !== 12) throw new Error('layout must be 12 rows');
+    for (let y = 0; y < 12; y++) {
+      const row = h.layout[y];
+      if (!Array.isArray(row) || row.length !== 8) throw new Error('row ' + y + ' must have 8 cols');
+      if ((y === 0 || y === 11) && !row.every(c => c === 3)) throw new Error('row ' + y + ' must be all walls');
+      if (row[0] !== 3 || row[7] !== 3) throw new Error('row ' + y + ' edges must be walls');
+    }
+    if (!Array.isArray(h.tee_position) || h.tee_position.length !== 2) throw new Error('tee_position must be [col,row]');
+    if (!Array.isArray(h.hole_position) || h.hole_position.length !== 2) throw new Error('hole_position must be [col,row]');
+    const [tx, ty] = h.tee_position;
+    const [hx, hy] = h.hole_position;
+    if (h.layout[ty][tx] !== 4) throw new Error('tile at tee_position must be 4');
+    if (h.layout[hy][hx] !== 5) throw new Error('tile at hole_position must be 5');
+    if (!Array.isArray(h.hazards)) h.hazards = [];
+    return h;
+  }
+  function validateHat(d) {
+    if (typeof d.key !== 'string' || !/^[a-z][a-z0-9_]*$/.test(d.key)) throw new Error('key must be snake_case');
+    if (CAT_PARTS.hats[d.key]) throw new Error('key already exists: ' + d.key);
+    if (typeof d.name !== 'string' || !d.name) throw new Error('name required');
+    if (typeof d.svg !== 'string') throw new Error('svg required');
+    if (!/^\s*<g[\s>]/.test(d.svg)) throw new Error('svg must start with <g>');
+    if (!/<\/g>\s*$/.test(d.svg)) throw new Error('svg must end with </g>');
+    if (/<script|onload|onerror|foreignobject/i.test(d.svg)) throw new Error('svg contains forbidden tags');
+    return d;
+  }
+
+  async function runGenerate(kind, prompt, validator) {
+    const status = $('admin-status');
+    const btns = document.querySelectorAll('#screen-admin button');
+    status.classList.remove('error');
+    status.textContent = 'Generating...';
+    btns.forEach(b => b.disabled = true);
+    try {
+      const text = await callClaudeAPI(prompt);
+      let data;
+      try { data = JSON.parse(text); }
+      catch (e) { throw new Error('Bad JSON: ' + e.message); }
+      validator(data);
+      pendingPreview = { kind, data };
+      renderPreview();
+      status.textContent = 'Preview ready. Accept to keep.';
+    } catch (e) {
+      status.textContent = 'Error: ' + e.message;
+      status.classList.add('error');
+    } finally {
+      btns.forEach(b => b.disabled = false);
+    }
+  }
+  function renderPreview() {
+    if (!pendingPreview) return;
+    $('admin-preview').style.display = '';
+    $('admin-preview-json').textContent = JSON.stringify(pendingPreview.data, null, 2);
+    const visual = $('admin-preview-visual');
+    visual.innerHTML = '';
+    if (pendingPreview.kind === 'hat') {
+      CAT_PARTS.hats._preview = () => pendingPreview.data.svg;
+      const tempCat = Object.assign({}, CATS[0], { hat: '_preview' });
+      visual.innerHTML = buildCat(tempCat);
+    }
+  }
+  function acceptPreview() {
+    if (!pendingPreview) return;
+    if (pendingPreview.kind === 'recipe') {
+      RECIPES.push(pendingPreview.data);
+      persistGen(GEN_RECIPES_KEY, pendingPreview.data);
+    } else if (pendingPreview.kind === 'hole') {
+      HOLES.push(pendingPreview.data);
+      persistGen(GEN_HOLES_KEY, pendingPreview.data);
+    } else if (pendingPreview.kind === 'hat') {
+      const { key, svg } = pendingPreview.data;
+      CAT_PARTS.hats[key] = () => svg;
+      persistGen(GEN_HATS_KEY, { [key]: svg });
+      delete CAT_PARTS.hats._preview;
+    }
+    pendingPreview = null;
+    $('admin-preview').style.display = 'none';
+    $('admin-status').textContent = 'Added!';
+  }
+  function discardPreview() {
+    if (pendingPreview && pendingPreview.kind === 'hat') delete CAT_PARTS.hats._preview;
+    pendingPreview = null;
+    $('admin-preview').style.display = 'none';
+    $('admin-status').textContent = '';
+  }
+  function openAdmin() {
+    show('screen-admin');
+    $('api-key-input').value = loadApiKey();
+    $('admin-status').textContent = '';
+    $('admin-status').classList.remove('error');
+    discardPreview();
+  }
+
   /* ---------- WIRE UP ---------- */
   function resetGameSession() {
     dayNumber = 0;
@@ -2510,8 +2808,29 @@
   buildPiano();
   loadCustomCat();
   loadUpgrades();
+  loadGeneratedContent();
   updateTipDisplay(false);
   updateServedCounter();
+
+  // Long-press on title opens hidden admin screen
+  (function () {
+    const titleEl = $('title');
+    if (!titleEl) return;
+    let pressTimer = null;
+    function cancel() { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }
+    titleEl.addEventListener('pointerdown', () => {
+      pressTimer = setTimeout(() => { pressTimer = null; openAdmin(); }, 800);
+    });
+    titleEl.addEventListener('pointerup', cancel);
+    titleEl.addEventListener('pointercancel', cancel);
+    titleEl.addEventListener('pointerleave', cancel);
+  })();
+  $('btn-admin-back').addEventListener('click', () => show('screen-menu'));
+  $('btn-gen-recipe').addEventListener('click', () => runGenerate('recipe', RECIPE_PROMPT, validateRecipe));
+  $('btn-gen-hole').addEventListener('click', () => runGenerate('hole', HOLE_PROMPT, validateHole));
+  $('btn-gen-hat').addEventListener('click', () => runGenerate('hat', HAT_PROMPT, validateHat));
+  $('btn-admin-accept').addEventListener('click', acceptPreview);
+  $('btn-admin-discard').addEventListener('click', discardPreview);
   setBallToTee(currentHole);
   setCatToTee(currentHole);
   renderCourse();
