@@ -539,11 +539,25 @@
     padding: 1.5rem;
     width: 100%;
     max-width: 22rem;
+    max-height: calc(100vh - 2rem);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.6),
       0 8px 28px rgba(93,64,55,0.5);
     animation: card-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     text-align: center;
+    overflow: hidden;
+  }
+  .summary-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 11rem);
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+  }
+  .summary-card #btn-next-day {
+    flex: 0 0 auto;
+    margin-top: 0.75rem;
   }
   @keyframes card-pop {
     from { transform: scale(0.5); opacity: 0; }
@@ -893,21 +907,23 @@
 
 <div id="summary-modal" class="summary-modal">
   <div class="summary-card">
-    <h2 id="summary-title">Day 1 Complete!</h2>
-    <div class="summary-rows">
-      <div class="summary-row"><span>Tips today</span><span id="summary-day-tips">$0</span></div>
-      <div class="summary-row"><span>Customers served</span><span id="summary-customers">0</span></div>
-      <div class="summary-row"><span>Holes played</span><span id="summary-holes">0</span></div>
-      <div class="summary-row"><span>Stars today</span><span id="summary-day-stars">⭐0</span></div>
-    </div>
-    <div class="summary-total">Total: <span id="summary-total">$0</span> · <span id="summary-total-stars">⭐0</span></div>
-    <div class="shop-section">
-      <div class="shop-title">Upgrade Shop</div>
-      <div id="shop-items"></div>
-    </div>
-    <div class="shop-section golf-shop">
-      <div class="shop-title">Golf Shop ⭐</div>
-      <div id="golf-shop-items"></div>
+    <div class="summary-scroll">
+      <h2 id="summary-title">Day 1 Complete!</h2>
+      <div class="summary-rows">
+        <div class="summary-row"><span>Tips today</span><span id="summary-day-tips">$0</span></div>
+        <div class="summary-row"><span>Customers served</span><span id="summary-customers">0</span></div>
+        <div class="summary-row"><span>Holes played</span><span id="summary-holes">0</span></div>
+        <div class="summary-row"><span>Stars today</span><span id="summary-day-stars">⭐0</span></div>
+      </div>
+      <div class="summary-total">Total: <span id="summary-total">$0</span> · <span id="summary-total-stars">⭐0</span></div>
+      <div class="shop-section">
+        <div class="shop-title">Upgrade Shop</div>
+        <div id="shop-items"></div>
+      </div>
+      <div class="shop-section golf-shop">
+        <div class="shop-title">Golf Shop ⭐</div>
+        <div id="golf-shop-items"></div>
+      </div>
     </div>
     <button id="btn-next-day" type="button">Start Day 2</button>
     <p id="summary-wait" class="hint" style="display: none;">Waiting for host...</p>
