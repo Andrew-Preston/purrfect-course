@@ -270,6 +270,31 @@
   }
   /* CAT */
   .cat-mount { width: 100%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+  .cat-mount.lucky {
+    animation: lucky-glow 1.8s ease-in-out infinite;
+  }
+  @keyframes lucky-glow {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.4)); }
+    50%      { filter: drop-shadow(0 0 18px rgba(255, 215, 0, 0.9)); }
+  }
+  .tip-wrap { display: inline-flex; align-items: baseline; gap: 0.3rem; }
+  .lucky-indicator {
+    display: none;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #7a5310;
+    background: linear-gradient(180deg, #fff8d8 0%, #ffd84a 100%);
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.8rem;
+    box-shadow: 0 1px 2px rgba(184,134,11,0.35);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+    animation: lucky-pop 0.4s ease-out;
+  }
+  .lucky-indicator.show { display: inline-block; }
+  @keyframes lucky-pop {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
   .cat-svg { width: min(72vw, 320px); height: auto; display: block; overflow: visible; }
   .cat-mount-preview .cat-svg { width: min(45vw, 200px); }
 
@@ -380,7 +405,9 @@
     pointer-events: none;
     opacity: 0;
     z-index: 10;
-    white-space: nowrap;
+    white-space: pre-line;
+    text-align: center;
+    line-height: 1.1;
   }
   .course-toast.show {
     animation: toast-pop 1.6s ease-out forwards;
@@ -849,7 +876,10 @@
   <div class="game-top">
     <button id="view-toggle" class="view-toggle-btn" type="button">Course</button>
     <div class="top-row">
-      <div id="tip-counter" class="tip-counter">$0</div>
+      <div class="tip-wrap">
+        <div id="tip-counter" class="tip-counter">$0</div>
+        <span id="lucky-indicator" class="lucky-indicator">+30%</span>
+      </div>
       <div id="star-counter" class="star-counter">⭐0</div>
       <div id="served-counter" class="served-counter">Cats 0</div>
       <div id="day-timer" class="day-timer">1:00</div>
@@ -1127,6 +1157,7 @@
       stars,
       dayStars,
       powerTreats,
+      luckyVibes,
     });
   }
   function broadcastCourseEvent(kind, extra) {
@@ -1191,6 +1222,12 @@
     if (typeof s.powerTreats === 'number' && s.powerTreats !== powerTreats) {
       powerTreats = s.powerTreats;
       updateTreatVisuals();
+    }
+    if (typeof s.luckyVibes === 'number' && s.luckyVibes !== luckyVibes) {
+      const consumed = s.luckyVibes < luckyVibes;
+      luckyVibes = s.luckyVibes;
+      updateLuckyIndicator();
+      if (consumed) playKaChing();
     }
     if (typeof s.secondsLeft === 'number' && s.secondsLeft !== secondsLeft) {
       const wasActive = secondsLeft > 0 && dayActive;
@@ -2280,6 +2317,32 @@
       if (el) el.setAttribute('opacity', String(i < powerTreats ? 1 : 0.22));
     }
   }
+  let luckyVibes = 0;
+  const LUCKY_AWARDS = {
+    hole_in_one: 3,
+    albatross:   3,
+    eagle:       2,
+    birdie:      1,
+    par:         0,
+    bogey:       0,
+    double_bogey: 0,
+    triple_bogey: 0,
+  };
+  function updateLuckyIndicator() {
+    const ind = document.getElementById('lucky-indicator');
+    const mount = document.getElementById('cat-mount');
+    if (ind) ind.classList.toggle('show', luckyVibes > 0);
+    if (mount) mount.classList.toggle('lucky', luckyVibes > 0);
+  }
+  function playKaChing() {
+    if (!holeSynth) return;
+    try {
+      const t = Tone.now();
+      holeSynth.triggerAttackRelease('E6', '32n', t);
+      holeSynth.triggerAttackRelease('B6', '32n', t + 0.07);
+      holeSynth.triggerAttackRelease('E7', '16n', t + 0.14);
+    } catch (e) {}
+  }
   let physicsRaf = 0;
   let lastPhysicsTime = 0;
 
@@ -2661,9 +2724,18 @@
     holesPlayed += 1;
     const verdict = verdictText(strokes, currentHole.par);
     const vKind   = verdictKind(strokes, currentHole.par);
-    if (role !== 'client') awardStars(vKind);
-    showToast(verdict);
-    broadcastCourseEvent('holein', { verdict, verdictKind: vKind });
+    let toastText = verdict;
+    if (role !== 'client') {
+      awardStars(vKind);
+      const luckyAwarded = LUCKY_AWARDS[vKind] || 0;
+      if (luckyAwarded > 0) {
+        luckyVibes += luckyAwarded;
+        updateLuckyIndicator();
+        toastText += '\n→ Lucky Vibes ✨';
+      }
+    }
+    showToast(toastText);
+    broadcastCourseEvent('holein', { verdict: toastText, verdictKind: vKind });
     playHoleIn(vKind);
     const c = document.getElementById('cat-golf');
     if (c) c.classList.add('big-celebrate');
@@ -2875,15 +2947,24 @@
     $('summary-modal').classList.remove('show');
   }
   function onOrderComplete() {
-    tips += currentRecipe.tip_value;
-    dayTips += currentRecipe.tip_value;
+    let tipAwarded = currentRecipe.tip_value;
+    let boosted = false;
+    if (luckyVibes > 0) {
+      tipAwarded = Math.round(tipAwarded * 1.3);
+      luckyVibes -= 1;
+      boosted = true;
+      updateLuckyIndicator();
+      playKaChing();
+    }
+    tips += tipAwarded;
+    dayTips += tipAwarded;
     updateTipDisplay(true);
     customersServed += 1;
     updateServedCounter();
     powerTreats = Math.min(POWER_TREATS_MAX, powerTreats + 1);
     updateTreatVisuals();
     catReact('happy', 1500);
-    $('game-hint').textContent = 'Yum! +$' + currentRecipe.tip_value;
+    $('game-hint').textContent = (boosted ? '✨ Lucky! +$' : 'Yum! +$') + tipAwarded;
     currentRecipe = null;
     renderTicket(null);
     setTimeout(() => {
@@ -3301,6 +3382,8 @@
     holesPlayed = 0;
     strokes = 0;
     powerTreats = 0;
+    luckyVibes = 0;
+    updateLuckyIndicator();
     customerQueue = [];
     currentCustomer = null;
     currentProgressionIdx = -1;
