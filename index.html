@@ -477,8 +477,8 @@
     text-shadow: 0 1px 0 rgba(255,255,255,0.6);
   }
   /* customer arrive / leave */
-  .cat-mount.slide-out .cat-card { animation: cat-slide-out 0.45s ease-in forwards; }
-  .cat-mount.slide-in  .cat-card { animation: cat-slide-in  0.5s ease-out forwards; }
+  .cat-mount.slide-out .cat-card { animation: cat-slide-out var(--slide-dur, 450ms) ease-in forwards; }
+  .cat-mount.slide-in  .cat-card { animation: cat-slide-in  var(--slide-dur, 500ms) ease-out forwards; }
   @keyframes cat-slide-out {
     0%   { transform: translateX(0)    rotate(0);  opacity: 1; }
     100% { transform: translateX(140%) rotate(10deg); opacity: 0; }
@@ -554,6 +554,64 @@
   #summary-wait {
     margin-top: 0.5rem;
   }
+  .shop-section {
+    margin: 0.6rem 0 1rem;
+    padding: 0.6rem 0;
+    border-top: 1px dashed rgba(212, 165, 116, 0.55);
+    border-bottom: 1px dashed rgba(212, 165, 116, 0.55);
+  }
+  .shop-title {
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 0.5rem;
+    text-align: center;
+  }
+  .shop-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    text-align: left;
+  }
+  .shop-item-info { flex: 1; }
+  .shop-item-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #5d4037;
+  }
+  .shop-item-desc {
+    font-size: 0.78rem;
+    opacity: 0.75;
+    color: #5d4037;
+  }
+  .shop-item-buy {
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 0.75rem;
+    border: none;
+    background: linear-gradient(180deg, #caffbf 0%, #9adf8d 100%);
+    color: #1b5e20;
+    cursor: pointer;
+    width: auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      0 2px 0 rgba(93,64,55,0.18);
+  }
+  .shop-item-buy:disabled {
+    background: linear-gradient(180deg, #ddd 0%, #aaa 100%);
+    color: #555;
+    cursor: not-allowed;
+    box-shadow: 0 1px 0 rgba(93,64,55,0.12);
+  }
+  .shop-item.owned .shop-item-buy {
+    background: linear-gradient(180deg, #f0e0d0 0%, #d0b89a 100%);
+    color: #5d4037;
+  }
+  .shop-item.owned .shop-item-name { opacity: 0.7; }
 
   /* PIANO */
   .piano {
@@ -712,6 +770,10 @@
       <div class="summary-row"><span>Holes played</span><span id="summary-holes">0</span></div>
     </div>
     <div class="summary-total">Total: <span id="summary-total">$0</span></div>
+    <div class="shop-section">
+      <div class="shop-title">Upgrade Shop</div>
+      <div id="shop-items"></div>
+    </div>
     <button id="btn-next-day" type="button">Start Day 2</button>
     <p id="summary-wait" class="hint" style="display: none;">Waiting for host...</p>
   </div>
@@ -809,14 +871,68 @@
     if (!hitSynth) return;
     try { hitSynth.triggerAttackRelease('C2', '16n'); } catch (e) {}
   }
-  function playHoleIn() {
+  // [note, offsetSec, duration] per tune
+  const HOLE_TUNES = {
+    hole_in_one: [
+      ['C5', 0,    '16n'],
+      ['E5', 0.07, '16n'],
+      ['G5', 0.14, '16n'],
+      ['C6', 0.21, '16n'],
+      ['E6', 0.28, '16n'],
+      ['G6', 0.35, '16n'],
+      ['C7', 0.45, '4n'],
+    ],
+    albatross: [
+      ['C5', 0,    '16n'],
+      ['G5', 0.08, '16n'],
+      ['E5', 0.16, '16n'],
+      ['G5', 0.24, '16n'],
+      ['C6', 0.32, '16n'],
+      ['E6', 0.42, '4n'],
+    ],
+    eagle: [
+      ['C5', 0,    '16n'],
+      ['E5', 0.1,  '16n'],
+      ['G5', 0.2,  '16n'],
+      ['C6', 0.3,  '16n'],
+      ['E6', 0.42, '4n'],
+    ],
+    birdie: [
+      ['C5', 0,    '16n'],
+      ['E5', 0.1,  '16n'],
+      ['G5', 0.2,  '16n'],
+      ['C6', 0.32, '8n'],
+    ],
+    par: [
+      ['C5', 0,    '8n'],
+      ['E5', 0.18, '8n'],
+      ['G5', 0.36, '4n'],
+    ],
+    bogey: [
+      ['A4', 0,    '8n'],
+      ['G4', 0.22, '8n'],
+      ['F4', 0.44, '4n'],
+    ],
+    double_bogey: [
+      ['F4',  0,    '8n'],
+      ['D#4', 0.28, '8n'],
+      ['C4',  0.56, '4n'],
+    ],
+    triple_bogey: [
+      ['D4',  0,    '4n'],
+      ['C#4', 0.45, '4n'],
+      ['C4',  0.9,  '4n'],
+      ['B3',  1.35, '2n'],
+    ],
+  };
+  function playHoleIn(kind) {
     if (!holeSynth) return;
+    const tune = HOLE_TUNES[kind] || HOLE_TUNES.par;
     try {
       const t = Tone.now();
-      holeSynth.triggerAttackRelease('C5', '16n', t);
-      holeSynth.triggerAttackRelease('E5', '16n', t + 0.1);
-      holeSynth.triggerAttackRelease('G5', '16n', t + 0.2);
-      holeSynth.triggerAttackRelease('C6', '8n',  t + 0.3);
+      tune.forEach(([note, offset, dur]) => {
+        holeSynth.triggerAttackRelease(note, dur, t + offset);
+      });
     } catch (e) {}
   }
   function playMeow() {
@@ -853,6 +969,7 @@
       dayNumber,
       dayTips,
       holesPlayed,
+      upgrades: { ...upgrades },
     });
   }
   function broadcastCourseEvent(kind, extra) {
@@ -958,6 +1075,16 @@
     if (typeof s.dayNumber === 'number') dayNumber = s.dayNumber;
     if (typeof s.dayTips === 'number')   dayTips   = s.dayTips;
     if (typeof s.holesPlayed === 'number') holesPlayed = s.holesPlayed;
+    if (s.upgrades && typeof s.upgrades === 'object') {
+      let changed = false;
+      for (const k in s.upgrades) {
+        if (upgrades[k] !== s.upgrades[k]) { upgrades[k] = s.upgrades[k]; changed = true; }
+      }
+      if (changed) {
+        saveUpgrades();
+        if ($('summary-modal').classList.contains('show')) renderShop();
+      }
+    }
   }
   function applyRemoteCourseEvent(d) {
     if (role !== 'client') return;
@@ -979,13 +1106,17 @@
         c.classList.add('big-celebrate');
         setTimeout(() => c.classList.remove('big-celebrate'), 1400);
       }
-      playHoleIn();
+      playHoleIn(d.verdictKind);
     }
   }
   function applyRemoteInputEvent(d) {
     if (role !== 'host') return;
     if (d.kind === 'course-tap') swingCat(d.aim || null);
     else if (d.kind === 'note-press') onNotePlayed(d.label);
+    else if (d.kind === 'buy') {
+      const u = UPGRADES.find(x => x.key === d.key);
+      if (u) buyUpgrade(u);
+    }
   }
   function applyRemoteCafeEvent(d) {
     if (role !== 'client') return;
@@ -1073,6 +1204,15 @@
         <g>
           <path d="M58,52 Q100,44 142,52 L142,62 Q100,57 58,62 Z" fill="#2e7d32"/>
           <ellipse cx="100" cy="54" rx="42" ry="3" fill="#1b5e20"/>
+        </g>`,
+      crown: () => `
+        <g>
+          <path d="M66,54 L72,30 L82,44 L92,26 L100,42 L108,26 L118,44 L128,30 L134,54 Z"
+                fill="#ffc107" stroke="#a16800" stroke-width="2" stroke-linejoin="round"/>
+          <rect x="64" y="52" width="72" height="7" rx="2" fill="#a16800"/>
+          <circle cx="92" cy="32" r="3" fill="#e91e63"/>
+          <circle cx="100" cy="36" r="3" fill="#2196f3"/>
+          <circle cx="108" cy="32" r="3" fill="#4caf50"/>
         </g>`,
     },
     accessories: {
@@ -1211,7 +1351,7 @@
     buildSwatches('fur-swatches', FUR_COLORS, cat.fur_color, c => updateCat({ fur_color: c }));
     buildSwatches('eye-swatches', EYE_COLORS, cat.eye_color, c => updateCat({ eye_color: c }));
     buildOptions('pattern-options', Object.keys(CAT_PARTS.patterns), cat.pattern, p => updateCat({ pattern: p }));
-    buildOptions('hat-options', Object.keys(CAT_PARTS.hats), cat.hat, h => updateCat({ hat: h }));
+    buildOptions('hat-options', availableHats(), cat.hat, h => updateCat({ hat: h }));
     buildOptions('accessory-options', Object.keys(CAT_PARTS.accessories), cat.accessory, a => updateCat({ accessory: a }));
     buildOptions('style-options', GOLF_STYLES, cat.golf_style, s => updateCat({ golf_style: s }));
   }
@@ -1286,8 +1426,94 @@
       tip_value: 22,
       cat_dialogue: 'Make it dreamy!',
     },
+    {
+      id: 'espresso_shot',
+      name: 'Espresso Shot',
+      notes: ['F', 'A'],
+      rhythm: [0.5, 0.5],
+      difficulty: 1,
+      tip_value: 12,
+      cat_dialogue: 'Wake me up!',
+    },
   ];
   function findRecipe(id) { return RECIPES.find(r => r.id === id); }
+
+  /* ---------- UPGRADES / SHOP ---------- */
+  const UPGRADES = [
+    { key: 'extra_time',      name: 'Extra Time',     desc: '+30s to each day',           cost: 25 },
+    { key: 'fast_customers',  name: 'Patient Cats',   desc: 'Customers swap in 50% faster', cost: 20 },
+    { key: 'crown_hat',       name: 'Crown Hat',      desc: 'Unlock fancy crown for cats', cost: 30 },
+    { key: 'espresso_recipe', name: 'Espresso Shot',  desc: 'Unlock a new espresso recipe', cost: 50 },
+  ];
+  // Which upgrade key unlocks a given part / recipe
+  const HAT_LOCKS    = { crown: 'crown_hat' };
+  const RECIPE_LOCKS = { espresso_shot: 'espresso_recipe' };
+
+  let upgrades = {
+    extra_time: false,
+    fast_customers: false,
+    crown_hat: false,
+    espresso_recipe: false,
+  };
+  const UPGRADE_STORAGE_KEY = 'purrfect-upgrades-v1';
+  function loadUpgrades() {
+    try {
+      const raw = localStorage.getItem(UPGRADE_STORAGE_KEY);
+      if (raw) Object.assign(upgrades, JSON.parse(raw));
+    } catch (e) {}
+  }
+  function saveUpgrades() {
+    try { localStorage.setItem(UPGRADE_STORAGE_KEY, JSON.stringify(upgrades)); } catch (e) {}
+  }
+  function getDayLength() { return upgrades.extra_time ? 90 : 60; }
+  function getSlideDuration() { return upgrades.fast_customers ? 225 : 450; }
+  function getSlideInDuration() { return upgrades.fast_customers ? 250 : 500; }
+  function availableHats() {
+    return Object.keys(CAT_PARTS.hats).filter(h => !HAT_LOCKS[h] || upgrades[HAT_LOCKS[h]]);
+  }
+  function availableRecipes() {
+    return RECIPES.filter(r => !RECIPE_LOCKS[r.id] || upgrades[RECIPE_LOCKS[r.id]]);
+  }
+  function renderShop() {
+    const container = $('shop-items');
+    if (!container) return;
+    container.innerHTML = '';
+    UPGRADES.forEach(u => {
+      const owned = upgrades[u.key];
+      const canAfford = tips >= u.cost;
+      const enabled = !owned && canAfford && role !== 'client' ? true
+                    : (!owned && role === 'client') ? true : false;
+      const div = document.createElement('div');
+      div.className = 'shop-item' + (owned ? ' owned' : '');
+      div.innerHTML = `
+        <div class="shop-item-info">
+          <div class="shop-item-name">${u.name}</div>
+          <div class="shop-item-desc">${u.desc}</div>
+        </div>
+        <button class="shop-item-buy" ${owned || (role !== 'client' && !canAfford) ? 'disabled' : ''}>
+          ${owned ? 'Owned' : '$' + u.cost}
+        </button>
+      `;
+      if (!owned) {
+        div.querySelector('button').addEventListener('click', () => buyUpgrade(u));
+      }
+      container.appendChild(div);
+    });
+  }
+  function buyUpgrade(u) {
+    if (upgrades[u.key]) return;
+    if (role === 'client') {
+      if (conn && conn.open) conn.send({ type: 'input-event', kind: 'buy', key: u.key });
+      return;
+    }
+    if (tips < u.cost) return;
+    tips -= u.cost;
+    upgrades[u.key] = true;
+    saveUpgrades();
+    updateTipDisplay(false);
+    if ($('summary-total')) $('summary-total').textContent = '$' + tips;
+    renderShop();
+  }
 
   /* ---------- CUSTOMERS / CAFE QUEUE ---------- */
   let customerQueue = [];
@@ -1307,18 +1533,19 @@
   function makeRandomCat() {
     const pick = arr => arr[Math.floor(Math.random() * arr.length)];
     customerSerial += 1;
+    const recipes = availableRecipes();
     return {
       id: 'cust-' + customerSerial,
       name: pick(CUSTOMER_NAMES),
       fur_color: pick(FUR_COLORS),
       eye_color: pick(EYE_COLORS),
       pattern: pick(Object.keys(CAT_PARTS.patterns)),
-      hat: pick(Object.keys(CAT_PARTS.hats)),
+      hat: pick(availableHats()),
       accessory: pick(Object.keys(CAT_PARTS.accessories)),
       favorite_food: RECIPES[0].id,
       golf_style: 'finesse',
       personality: 'hungry',
-      order: RECIPES[Math.floor(Math.random() * RECIPES.length)],
+      order: recipes[Math.floor(Math.random() * recipes.length)],
     };
   }
   function refillQueue() {
@@ -1345,37 +1572,46 @@
     renderCustomerCat();
     startOrder(next.order);
     const m = $('cat-mount');
+    const inDur = getSlideInDuration();
+    m.style.setProperty('--slide-dur', inDur + 'ms');
     m.classList.remove('slide-out', 'slide-in', 'happy', 'sad');
     void m.offsetWidth;
     m.classList.add('slide-in');
-    setTimeout(() => m.classList.remove('slide-in'), 500);
+    setTimeout(() => m.classList.remove('slide-in'), inDur);
   }
   function slideOutAndServeNext() {
     const m = $('cat-mount');
+    const outDur = getSlideDuration();
+    m.style.setProperty('--slide-dur', outDur + 'ms');
     m.classList.remove('happy', 'sad');
     m.classList.add('slide-out');
     setTimeout(() => {
       m.classList.remove('slide-out');
       serveNextCustomer();
-    }, 450);
+    }, outDur);
   }
   function applyRemoteCustomer(nextCustomer) {
     const m = $('cat-mount');
+    const outDur = getSlideDuration();
+    const inDur  = getSlideInDuration();
     m.classList.remove('happy', 'sad', 'slide-in', 'slide-out');
     if (currentCustomer) {
+      m.style.setProperty('--slide-dur', outDur + 'ms');
       m.classList.add('slide-out');
       setTimeout(() => {
         m.classList.remove('slide-out');
         currentCustomer = nextCustomer;
         renderCustomerCat();
+        m.style.setProperty('--slide-dur', inDur + 'ms');
         m.classList.add('slide-in');
-        setTimeout(() => m.classList.remove('slide-in'), 500);
-      }, 450);
+        setTimeout(() => m.classList.remove('slide-in'), inDur);
+      }, outDur);
     } else {
+      m.style.setProperty('--slide-dur', inDur + 'ms');
       currentCustomer = nextCustomer;
       renderCustomerCat();
       m.classList.add('slide-in');
-      setTimeout(() => m.classList.remove('slide-in'), 500);
+      setTimeout(() => m.classList.remove('slide-in'), inDur);
     }
   }
 
@@ -1626,6 +1862,17 @@
     if (diff === 2)  return 'Double Bogey';
     return '+' + diff;
   }
+  function verdictKind(s, par) {
+    if (s === 1) return 'hole_in_one';
+    const diff = s - par;
+    if (diff <= -3) return 'albatross';
+    if (diff === -2) return 'eagle';
+    if (diff === -1) return 'birdie';
+    if (diff === 0)  return 'par';
+    if (diff === 1)  return 'bogey';
+    if (diff === 2)  return 'double_bogey';
+    return 'triple_bogey'; // +3 or worse all use triple bogey tune
+  }
   function advanceOrResetHole() {
     const idx = HOLES.findIndex(h => h.id === currentHole.id);
     currentHole = HOLES[(idx + 1) % HOLES.length];
@@ -1821,9 +2068,10 @@
     ball.atRest = true;
     holesPlayed += 1;
     const verdict = verdictText(strokes, currentHole.par);
+    const vKind   = verdictKind(strokes, currentHole.par);
     showToast(verdict);
-    broadcastCourseEvent('holein', { verdict });
-    playHoleIn();
+    broadcastCourseEvent('holein', { verdict, verdictKind: vKind });
+    playHoleIn(vKind);
     const c = document.getElementById('cat-golf');
     if (c) c.classList.add('big-celebrate');
     setTimeout(() => {
@@ -1958,7 +2206,7 @@
     el.classList.toggle('done', !dayActive && secondsLeft <= 0);
   }
   function startDay() {
-    secondsLeft = DAY_LENGTH;
+    secondsLeft = getDayLength();
     dayActive = true;
     dayNumber += 1;
     dayTips = 0;
@@ -2021,6 +2269,7 @@
       $('btn-next-day').style.display = '';
       $('summary-wait').style.display = 'none';
     }
+    renderShop();
     $('summary-modal').classList.add('show');
   }
   function hideSummary() {
@@ -2260,6 +2509,7 @@
 
   buildPiano();
   loadCustomCat();
+  loadUpgrades();
   updateTipDisplay(false);
   updateServedCounter();
   setBallToTee(currentHole);
