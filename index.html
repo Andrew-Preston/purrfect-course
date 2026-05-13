@@ -1126,6 +1126,7 @@
       progLabel,
       stars,
       dayStars,
+      powerTreats,
     });
   }
   function broadcastCourseEvent(kind, extra) {
@@ -1187,6 +1188,10 @@
     }
     if (typeof s.dayStars === 'number') dayStars = s.dayStars;
     if (s.golfUpgrades) Object.assign(golfUpgrades, s.golfUpgrades);
+    if (typeof s.powerTreats === 'number' && s.powerTreats !== powerTreats) {
+      powerTreats = s.powerTreats;
+      updateTreatVisuals();
+    }
     if (typeof s.secondsLeft === 'number' && s.secondsLeft !== secondsLeft) {
       const wasActive = secondsLeft > 0 && dayActive;
       secondsLeft = s.secondsLeft;
@@ -2267,6 +2272,14 @@
   let ball = { x: 0, y: 0, vx: 0, vy: 0, atRest: true };
   let catPos = { x: 0, y: 0 };
   let strokes = 0;
+  let powerTreats = 0;
+  const POWER_TREATS_MAX = 3;
+  function updateTreatVisuals() {
+    for (let i = 0; i < POWER_TREATS_MAX; i++) {
+      const el = document.getElementById('treat-' + i);
+      if (el) el.setAttribute('opacity', String(i < powerTreats ? 1 : 0.22));
+    }
+  }
   let physicsRaf = 0;
   let lastPhysicsTime = 0;
 
@@ -2386,11 +2399,19 @@
     const catX = catCx - catW / 2;
     const catY = catCy - catH * 0.6;
     const catGolf = `<svg x="${catX}" y="${catY}" width="${catW}" height="${catH}" viewBox="0 0 200 240" class="cat-golf-svg" id="cat-golf">${buildCatInner(CATS[0])}</svg>`;
+    const treatSize = CELL * 0.42;
+    const treatY = catY - 2;
+    let treats = '';
+    for (let i = 0; i < POWER_TREATS_MAX; i++) {
+      const filled = i < powerTreats;
+      const tx = catCx + (i - 1) * treatSize * 1.1;
+      treats += `<text id="treat-${i}" x="${tx}" y="${treatY}" font-size="${treatSize}" text-anchor="middle" opacity="${filled ? 1 : 0.22}">🐟</text>`;
+    }
     const ballCx = ball.x * CELL, ballCy = ball.y * CELL;
     const ballSvg = `
       <ellipse id="ball-shadow" cx="${ballCx + 1}" cy="${ballCy + CELL*0.2}" rx="${CELL*0.22}" ry="${CELL*0.07}" fill="#000" opacity="0.32"/>
       <circle id="ball" cx="${ballCx}" cy="${ballCy}" r="${CELL*0.22}" fill="url(#${golfUpgrades.gold_ball ? 'ballGoldGrad' : 'ballGrad'})" stroke="${golfUpgrades.gold_ball ? '#7a5310' : '#5d4037'}" stroke-width="1.2"/>`;
-    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${defs}${tiles}${teeMark}${cup}${catGolf}${ballSvg}</svg>`;
+    return `<svg viewBox="0 0 ${w} ${h}" class="course-svg" xmlns="http://www.w3.org/2000/svg">${defs}${tiles}${teeMark}${cup}${catGolf}${treats}${ballSvg}</svg>`;
   }
   function renderCourse() {
     $('view-course').innerHTML = `
@@ -2493,6 +2514,10 @@
     else if (style === 'chaotic') { powerMul = 0.5  + Math.random() * 1.0;  spread = 0.35; }
     else                          { powerMul = 1.0;                         spread = 0.10; }
     if (golfUpgrades.sharp_eye) spread *= 0.5;
+    if (powerTreats > 0) {
+      powerMul *= 1 + 0.1 * powerTreats;
+      spread *= Math.pow(0.7, powerTreats);
+    }
     const baseAngle = Math.atan2(dy, dx);
     const angle = baseAngle + (Math.random() - 0.5) * spread * 2;
     const baseSpeed = Math.min(dist * 1.6, 10) * (golfUpgrades.power_tee ? 1.2 : 1);
@@ -2501,6 +2526,8 @@
     ball.vy = Math.sin(angle) * v;
     ball.atRest = false;
     strokes += 1;
+    powerTreats = 0;
+    updateTreatVisuals();
     updateScore();
     playBallHit();
     broadcastCourseEvent('ball-hit');
@@ -2853,6 +2880,8 @@
     updateTipDisplay(true);
     customersServed += 1;
     updateServedCounter();
+    powerTreats = Math.min(POWER_TREATS_MAX, powerTreats + 1);
+    updateTreatVisuals();
     catReact('happy', 1500);
     $('game-hint').textContent = 'Yum! +$' + currentRecipe.tip_value;
     currentRecipe = null;
@@ -3271,6 +3300,7 @@
     customersServed = 0;
     holesPlayed = 0;
     strokes = 0;
+    powerTreats = 0;
     customerQueue = [];
     currentCustomer = null;
     currentProgressionIdx = -1;
