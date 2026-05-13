@@ -154,6 +154,16 @@
     0%, 100% { transform: scale(1); }
     50%      { transform: scale(1.1); }
   }
+  .now-playing {
+    font-size: 0.8rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: #8b6f5e;
+    opacity: 0.8;
+    letter-spacing: 0.04em;
+    min-height: 1em;
+    text-align: center;
+  }
+  .now-playing:empty { display: none; }
   .game-stage {
     flex: 1;
     display: flex;
@@ -818,6 +828,7 @@
       <div id="day-timer" class="day-timer">1:00</div>
     </div>
     <p class="hint" id="game-hint">Play the order</p>
+    <div id="now-playing" class="now-playing"></div>
   </div>
   <div class="game-stage">
     <div id="view-chef" class="view view-chef active">
@@ -1077,6 +1088,7 @@
       dayTips,
       holesPlayed,
       upgrades: { ...upgrades },
+      progLabel,
     });
   }
   function broadcastCourseEvent(kind, extra) {
@@ -1111,6 +1123,10 @@
   }
   function applyRemoteState(s) {
     if (role !== 'client') return;
+    if (typeof s.progLabel === 'string' && s.progLabel !== progLabel) {
+      progLabel = s.progLabel;
+      renderNowPlaying();
+    }
     const incomingId = s.recipeId || null;
     const localId = currentRecipe ? currentRecipe.id : null;
     if (incomingId !== localId) {
@@ -1549,8 +1565,82 @@
       tip_value: 16,
       cat_dialogue: 'Wake me up!',
     },
+    {
+      id: 'salmon_tart',
+      name: 'Salmon Tart',
+      chord: 'G',
+      notes: ['G', 'B', 'D'],
+      rhythm: [0.5, 0.5, 0.5],
+      difficulty: 1,
+      tip_value: 8,
+      cat_dialogue: 'Flaky and pink!',
+    },
+    {
+      id: 'midnight_milk',
+      name: 'Midnight Milk',
+      chord: 'Dm7',
+      notes: ['D', 'F', 'A', 'C'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 14,
+      cat_dialogue: 'Cool and quiet...',
+    },
+    {
+      id: 'jazzcake',
+      name: 'Jazzcake',
+      chord: 'G7',
+      notes: ['G', 'B', 'D', 'F'],
+      rhythm: [0.5, 0.5, 0.5, 1],
+      difficulty: 2,
+      tip_value: 16,
+      cat_dialogue: 'Bop bop please!',
+    },
   ];
   function findRecipe(id) { return RECIPES.find(r => r.id === id); }
+
+  /* ---------- PROGRESSIONS ---------- */
+  const PROGRESSIONS = [
+    { name: 'Pop',             key: 'C', ids: ['cream_drop', 'salmon_tart', 'mouse_mousse', 'pawcakes'] },
+    { name: 'Jazz turnaround', key: 'C', ids: ['midnight_milk', 'jazzcake', 'tuna_souffle'] },
+    { name: 'Cozy',            key: 'C', ids: ['cream_drop', 'pawcakes', 'mouse_mousse', 'salmon_tart'] },
+    { name: 'Resolve',         key: 'C', ids: ['mouse_mousse', 'pawcakes', 'cream_drop', 'salmon_tart'] },
+    { name: 'Bluesy',          key: 'C', ids: ['cream_drop', 'espresso_shot', 'salmon_tart'] },
+  ];
+  let currentProgressionIdx = -1;
+  let progressionStep = 0;
+  let progLabel = '';
+  function availableProgressions() {
+    return PROGRESSIONS.filter(p => p.ids.every(id => {
+      const r = findRecipe(id);
+      return r && (!RECIPE_LOCKS[r.id] || upgrades[RECIPE_LOCKS[r.id]]);
+    }));
+  }
+  function pickProgression() {
+    const pool = availableProgressions();
+    if (!pool.length) { progLabel = ''; renderNowPlaying(); return; }
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    currentProgressionIdx = PROGRESSIONS.indexOf(pick);
+    progressionStep = 0;
+    progLabel = pick.name + ' in ' + pick.key;
+    renderNowPlaying();
+  }
+  function nextProgressionRecipe() {
+    if (currentProgressionIdx < 0) pickProgression();
+    let p = PROGRESSIONS[currentProgressionIdx];
+    if (!p || progressionStep >= p.ids.length) {
+      pickProgression();
+      p = PROGRESSIONS[currentProgressionIdx];
+      if (!p) return RECIPES[0];
+    }
+    const id = p.ids[progressionStep];
+    progressionStep += 1;
+    return findRecipe(id) || RECIPES[0];
+  }
+  function renderNowPlaying() {
+    const el = $('now-playing');
+    if (!el) return;
+    el.textContent = progLabel ? ('♪ ' + progLabel) : '';
+  }
 
   /* ---------- UPGRADES / SHOP ---------- */
   const UPGRADES = [
@@ -1647,7 +1737,7 @@
   function makeRandomCat() {
     const pick = arr => arr[Math.floor(Math.random() * arr.length)];
     customerSerial += 1;
-    const recipes = availableRecipes();
+    const order = nextProgressionRecipe();
     return {
       id: 'cust-' + customerSerial,
       name: pick(CUSTOMER_NAMES),
@@ -1659,7 +1749,8 @@
       favorite_food: RECIPES[0].id,
       golf_style: 'finesse',
       personality: 'hungry',
-      order: recipes[Math.floor(Math.random() * recipes.length)],
+      order,
+      progLabel,
     };
   }
   function refillQueue() {
@@ -1683,6 +1774,10 @@
     const next = customerQueue.shift() || makeRandomCat();
     refillQueue();
     currentCustomer = next;
+    if (typeof next.progLabel === 'string') {
+      progLabel = next.progLabel;
+      renderNowPlaying();
+    }
     renderCustomerCat();
     startOrder(next.order);
     const m = $('cat-mount');
@@ -2336,6 +2431,7 @@
       currentCustomer = null;
       customersServed = 0;
       customerSerial = 0;
+      pickProgression();
       updateServedCounter();
       refillQueue();
       serveNextCustomer();
@@ -2814,6 +2910,10 @@
     strokes = 0;
     customerQueue = [];
     currentCustomer = null;
+    currentProgressionIdx = -1;
+    progressionStep = 0;
+    progLabel = '';
+    renderNowPlaying();
     hideSummary();
   }
   $('btn-host').addEventListener('click', () => { ensureAudio(); resetGameSession(); startHost(); });
